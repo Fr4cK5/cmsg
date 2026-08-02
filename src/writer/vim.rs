@@ -1,3 +1,5 @@
+//.git-keep
+
 use crate::parser::ParsedFiles;
 
 pub struct VimWriter;

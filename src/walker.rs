@@ -1,3 +1,5 @@
+//.git-keep
+
 use std::{
     fs,
     path::PathBuf,
