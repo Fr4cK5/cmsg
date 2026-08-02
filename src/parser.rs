@@ -19,11 +19,13 @@ impl ParsedLine {
     }
 }
 
+pub type ParsedFiles = Vec<ParsedFile>;
+
 /// ParsedFile represents a whole file of parsed lines.
 #[derive(Debug, Clone)]
 pub struct ParsedFile {
-    file: OsString,
-    lines: Vec<ParsedLine>,
+    pub file: OsString,
+    pub lines: Vec<ParsedLine>,
 }
 
 impl ParsedFile {

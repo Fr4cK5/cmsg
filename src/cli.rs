@@ -2,6 +2,12 @@ use clap::{CommandFactory, Parser};
 use eyre::Result;
 use std::{fmt::Display, path::PathBuf};
 
+use crate::{
+    cmd_action::List,
+    parser::ParsedFiles,
+    writer::{json::JsonWriter, natural::NaturalWriter, vim::VimWriter},
+};
+
 #[derive(Debug, Clone, clap::Parser)]
 #[command(
     version = "0.0.1",
@@ -28,7 +34,7 @@ pub struct Cli {
     pub base_directory: String,
 
     #[arg(short = 'f', long, default_value_t = Default::default(), help = "Set the output format")]
-    pub format: Format,
+    pub format: OutputFormat,
 
     #[command(subcommand)]
     pub action: Option<Action>,
@@ -60,28 +66,37 @@ impl Cli {
 }
 
 #[derive(Debug, Clone, Copy, Default, clap::ValueEnum)]
-pub enum Format {
+pub enum OutputFormat {
     #[default]
-    Human,
+    Natural,
     Vim,
     Json,
 }
 
-impl Display for Format {
+impl Display for OutputFormat {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(match *self {
-            Self::Human => "human",
+            Self::Natural => "natural",
             Self::Vim => "vim",
             Self::Json => "json",
         })
     }
 }
 
-#[derive(Debug, Clone, Default, clap::Parser)]
+impl OutputFormat {
+    pub fn write_stdout(&self, entries: &ParsedFiles) {
+        match *self {
+            Self::Natural => NaturalWriter::write_stdout(entries),
+            Self::Vim => VimWriter::write_stdout(entries),
+            Self::Json => JsonWriter::write_stdout(entries),
+        }
+    }
+}
+
+#[derive(Debug, Clone, clap::Parser)]
 pub enum Action {
     #[command(name = "ls", about = "List all occurences of .cmsg markers")]
-    #[default]
-    List,
+    List(List),
 
     #[command(
         name = "commit",
@@ -94,4 +109,10 @@ pub enum Action {
 
     #[command(name = "count", about = "Count all occurences of .cmsg markers")]
     Count,
+}
+
+impl Default for Action {
+    fn default() -> Self {
+        Self::List(List::default())
+    }
 }
