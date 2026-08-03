@@ -117,7 +117,7 @@ impl Walker {
                 parsed_files.push(parsed_file);
             }
 
-            parsed_files
+            ParsedFiles(parsed_files)
         })
     }
 }

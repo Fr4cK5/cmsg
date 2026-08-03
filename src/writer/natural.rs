@@ -1,11 +1,15 @@
+use std::fmt::Write as _;
+
 use crate::parser::ParsedFiles;
 
-pub struct NaturalWriter;
+pub struct NaturalFormatter;
 
-impl NaturalWriter {
-    pub fn write_stdout(files: &ParsedFiles) {
-        for file in files {
-            println!("File {}", &file.file.display());
+impl NaturalFormatter {
+    pub fn format(files: &ParsedFiles) -> String {
+        let mut buf = String::new();
+
+        for file in files.0.iter() {
+            _ = writeln!(&mut buf, "File {}", &file.file.display());
 
             let mut max_len = file
                 .lines
@@ -21,15 +25,18 @@ impl NaturalWriter {
             }
 
             for line in file.lines.iter() {
-                println!(
+                _ = writeln!(
+                    &mut buf,
                     "  Line {: >ln_width$}: {}",
                     line.line,
                     line.message,
                     ln_width = max_width
-                )
+                );
             }
 
-            println!();
+            buf.push('\n');
         }
+
+        buf
     }
 }

@@ -2,6 +2,7 @@ use eyre::Result;
 
 use crate::{
     cli::{Action, Cli},
+    cmd_action::Count,
     walker::Walker,
 };
 
@@ -18,7 +19,7 @@ impl App {
     pub fn run(&self) -> Result<()> {
         let walker = Walker::build_from(&self.cli);
         let mut parsed_files = walker.walk();
-        parsed_files.sort_by(|a, b| a.file.cmp(&b.file));
+        parsed_files.sort();
 
         match self.cli.action.as_ref().unwrap_or(&Action::default()) {
             Action::List(list) => {
@@ -26,7 +27,7 @@ impl App {
             }
             Action::Commit => todo!(),
             Action::Undo => todo!(),
-            Action::Count => todo!(),
+            Action::Count => Count::run(&parsed_files, &self.cli.format),
         }
 
         Ok(())

@@ -1,5 +1,7 @@
 use std::ffi::OsString;
 
+use crate::cli::OutputFormat;
+
 const MARKER: &str = ".cmsg";
 
 /// ParsedLine represents a single, context-less, parsed line.
@@ -19,7 +21,18 @@ impl ParsedLine {
     }
 }
 
-pub type ParsedFiles = Vec<ParsedFile>;
+// pub type ParsedFiles = Vec<ParsedFile>;
+pub struct ParsedFiles(pub Vec<ParsedFile>);
+
+impl ParsedFiles {
+    pub fn to_formatted_string(&self, format: &OutputFormat) -> String {
+        format.format(self)
+    }
+
+    pub fn sort(&mut self) {
+        self.0.sort_by(|a, b| a.file.cmp(&b.file));
+    }
+}
 
 /// ParsedFile represents a whole file of parsed lines.
 #[derive(Debug, Clone)]

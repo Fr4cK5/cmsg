@@ -1,9 +1,9 @@
 use crate::parser::ParsedFiles;
 
-pub struct JsonWriter;
+pub struct JsonFormatter;
 
-impl JsonWriter {
-    pub fn write_stdout(_files: &ParsedFiles) {
+impl JsonFormatter {
+    pub fn format(_files: &ParsedFiles) -> String {
         todo!();
     }
 }

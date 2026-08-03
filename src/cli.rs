@@ -5,7 +5,7 @@ use std::{fmt::Display, path::PathBuf};
 use crate::{
     cmd_action::List,
     parser::ParsedFiles,
-    writer::{json::JsonWriter, natural::NaturalWriter, vim::VimWriter},
+    writer::{json::JsonFormatter, natural::NaturalFormatter, vim::VimFormatter},
 };
 
 #[derive(Debug, Clone, clap::Parser)]
@@ -84,11 +84,11 @@ impl Display for OutputFormat {
 }
 
 impl OutputFormat {
-    pub fn write_stdout(&self, entries: &ParsedFiles) {
+    pub fn format(&self, entries: &ParsedFiles) -> String {
         match *self {
-            Self::Natural => NaturalWriter::write_stdout(entries),
-            Self::Vim => VimWriter::write_stdout(entries),
-            Self::Json => JsonWriter::write_stdout(entries),
+            Self::Natural => NaturalFormatter::format(entries),
+            Self::Vim => VimFormatter::format(entries),
+            Self::Json => JsonFormatter::format(entries),
         }
     }
 }
