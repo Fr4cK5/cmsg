@@ -10,8 +10,7 @@ use std::{
 use ignore::{WalkBuilder, WalkParallel, WalkState};
 
 use crate::{
-    cli::Cli,
-    parser::{ParsedFile, ParsedFiles, Parser},
+    cli::Cli, hash, parser::{ParsedFile, ParsedFiles, Parser}
 };
 
 pub struct Walker {
@@ -82,12 +81,12 @@ impl Walker {
                         };
 
                         let file_name = path.into_os_string();
-
+                        let digest = hash::sha256_digest_alloc(content.as_bytes());
                         let mut parser = Parser::new(&content);
                         let result = parser.parse();
 
                         if !result.is_empty() {
-                            out_sender.send(ParsedFile::new(file_name, result)).ok();
+                            out_sender.send(ParsedFile::new(file_name, result, digest)).ok();
                         }
                     }
                 });

@@ -22,6 +22,7 @@ impl ParsedLine {
 }
 
 // pub type ParsedFiles = Vec<ParsedFile>;
+#[derive(Debug, Clone)]
 pub struct ParsedFiles(pub Vec<ParsedFile>);
 
 impl ParsedFiles {
@@ -39,11 +40,12 @@ impl ParsedFiles {
 pub struct ParsedFile {
     pub file: OsString,
     pub lines: Vec<ParsedLine>,
+    pub hash: String,
 }
 
 impl ParsedFile {
-    pub fn new(file: OsString, lines: Vec<ParsedLine>) -> Self {
-        Self { file, lines }
+    pub fn new(file: OsString, lines: Vec<ParsedLine>, hash: String) -> Self {
+        Self { file, lines, hash }
     }
 }
 

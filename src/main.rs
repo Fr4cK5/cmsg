@@ -10,6 +10,7 @@ mod cmd_action;
 mod parser;
 mod walker;
 mod writer;
+mod hash;
 
 fn main() -> Result<()> {
     let cli_args = Cli::parse_and_validate();
