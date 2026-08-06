@@ -3,27 +3,38 @@ use sha2::{Digest, Sha256};
 fn hex_from_u8(x: u8) -> char {
     if x < 10 {
         (b'0' + x) as char
-    }
-    else {
+    } else {
         (b'A' + x - 10) as char
     }
 }
 
-fn hex(buf: &mut String, blob: &[u8]) {
+fn hex(buf: &mut String, blob: &[u8]) -> usize {
+    let mut written = 0usize;
     for x in blob {
         buf.push(hex_from_u8(x / 16));
         buf.push(hex_from_u8(x % 16));
+        written += 3;
     }
+
+    written
 }
 
 pub fn sha256_digest_alloc(content: &[u8]) -> String {
-
     // important(perf): Update this alongside the algorithm should it ever change.
     const DIGEST_SIZE: usize = 256;
+    const EFFECTIVE_BUF_SIZE: usize = DIGEST_SIZE * 2 / 8;
     let digest = Sha256::digest(content);
 
-    let mut hash_str = String::with_capacity(2 * DIGEST_SIZE / 8);
-    hex(&mut hash_str, digest.as_slice());
+    let mut hash_str = String::with_capacity(EFFECTIVE_BUF_SIZE);
+    let written = hex(&mut hash_str, digest.as_slice());
+
+    #[cfg(debug_assertions)]
+    if written != EFFECTIVE_BUF_SIZE {
+        panic!(
+            r#"perf:hash/hex-string: The String buffer holding a hex-encoded digest hasn't received the pre-allocated amount of bytes.
+It is thereby wasting space by either over-allocating, or wasting both space and performance by causing re-allocations."#
+        );
+    }
 
     hash_str
 }

@@ -9,7 +9,7 @@ impl NaturalFormatter {
         let mut buf = String::new();
 
         for file in files.0.iter() {
-            _ = writeln!(&mut buf, "File {}", &file.file.display());
+            _ = writeln!(&mut buf, "File {}", file.file.display());
 
             let mut max_len = file
                 .lines
