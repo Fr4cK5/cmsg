@@ -3,7 +3,7 @@ use eyre::Result;
 use std::{fmt::Display, path::PathBuf};
 
 use crate::{
-    cmd_action::{Commit, List},
+    cmd_action::{Clean, Commit, List},
     parser::ParsedFiles,
     writer::{json::JsonFormatter, natural::NaturalFormatter, vim::VimFormatter},
 };
@@ -114,7 +114,7 @@ pub enum Action {
         name = "clean",
         about = "Clean all data directories, reclaiming some storage space"
     )]
-    Clean,
+    Clean(Clean),
 }
 
 impl Default for Action {

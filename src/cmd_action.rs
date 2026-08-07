@@ -64,12 +64,12 @@ pub struct Commit {
         default_value_t = false,
         help = "Copy the output to the system clipboard. Forces vim output format."
     )]
-    copy: bool,
+    pub copy: bool,
 }
 
 impl Commit {
-    pub fn run(&self, files: &ParsedFiles, config: &Config) -> Result<()> {
-        List::default().run(files, &OutputFormat::Vim)?;
+    pub fn run(&self, files: &ParsedFiles, output: &OutputFormat, config: &Config) -> Result<()> {
+        List::default().run(files, output)?;
 
         let mut buf: [u8; 128] = [0u8; 128];
         fastrand::fill(&mut buf);
@@ -106,4 +106,15 @@ impl Commit {
 
         Ok(())
     }
+}
+
+#[derive(Debug, Clone, Default, clap::Parser)]
+pub struct Clean {
+    #[arg(
+        short,
+        long,
+        default_value_t = false,
+        help = "Remove *all* data directories instead of just the one's belonging to the local project."
+    )]
+    pub all: bool,
 }

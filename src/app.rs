@@ -32,10 +32,13 @@ impl App {
 
         match self.cli.action.as_ref().unwrap_or(&Action::default()) {
             Action::List(list) => list.run(&parsed_files, &self.cli.format),
-            Action::Commit(commit) => commit.run(&parsed_files, &self.config),
+            Action::Commit(commit) => commit.run(&parsed_files, &self.cli.format, &self.config),
             Action::Undo => todo!(),
             Action::Count => Count::run(&parsed_files, &self.cli.format),
-            Action::Clean => {
+            Action::Clean(_clean) => {
+                // TODO: Default to only removing the project-local data dirs.
+                // Only remove all the data dirs if `all` is true
+                // This means we'll have to keep some metadata about the hashes and such.
                 let mut errors = false;
 
                 for dir in [
