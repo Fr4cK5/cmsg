@@ -7,6 +7,7 @@ use crate::{app::App, cli::Cli};
 mod app;
 mod cli;
 mod cmd_action;
+mod config;
 mod hash;
 mod parser;
 mod walker;

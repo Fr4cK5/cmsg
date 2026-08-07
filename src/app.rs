@@ -3,16 +3,21 @@ use eyre::Result;
 use crate::{
     cli::{Action, Cli},
     cmd_action::Count,
+    config::Config,
     walker::Walker,
 };
 
 pub struct App {
     cli: Cli,
+    config: Config,
 }
 
 impl App {
     pub fn new(cli: Cli) -> Self {
-        Self { cli }
+        Self {
+            cli,
+            config: Config::load().ok().unwrap_or_default(),
+        }
     }
 
     /// Run the action
@@ -25,7 +30,7 @@ impl App {
             Action::List(list) => {
                 list.run(&parsed_files, &self.cli.format);
             }
-            Action::Commit => todo!(),
+            Action::Commit(commit) => commit.run(&parsed_files, &self.config)?,
             Action::Undo => todo!(),
             Action::Count => Count::run(&parsed_files, &self.cli.format),
         }

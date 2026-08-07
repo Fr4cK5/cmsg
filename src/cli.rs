@@ -3,7 +3,7 @@ use eyre::Result;
 use std::{fmt::Display, path::PathBuf};
 
 use crate::{
-    cmd_action::List,
+    cmd_action::{Commit, List},
     parser::ParsedFiles,
     writer::{json::JsonFormatter, natural::NaturalFormatter, vim::VimFormatter},
 };
@@ -102,7 +102,7 @@ pub enum Action {
         name = "commit",
         about = "List all occurences of .cmsg markers, remove them from the code, and return a hash for undoing the commit should this mess up the code"
     )]
-    Commit,
+    Commit(Commit),
 
     #[command(name = "undo", about = "Undo a previous commit based on a hash")]
     Undo,

@@ -13,7 +13,7 @@ fn hex(buf: &mut String, blob: &[u8]) -> usize {
     for x in blob {
         buf.push(hex_from_u8(x / 16));
         buf.push(hex_from_u8(x % 16));
-        written += 3;
+        written += 2;
     }
 
     written
