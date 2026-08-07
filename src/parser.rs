@@ -1,5 +1,8 @@
 use std::ffi::OsString;
 
+use eyre::Result;
+use serde::Serialize;
+
 use crate::cli::OutputFormat;
 
 const MARKER: &str = ".cmsg";
@@ -9,7 +12,7 @@ const MARKER: &str = ".cmsg";
 ///
 /// Note: The line number is one-indexed. Iterators you'd get from doing
 /// `file_content.lines().enumerate()` or similar, use zero-indexed ranges.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ParsedLine {
     pub line: usize,
     pub message: String,
@@ -21,11 +24,11 @@ impl ParsedLine {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ParsedFiles(pub Vec<ParsedFile>);
 
 impl ParsedFiles {
-    pub fn to_formatted_string(&self, format: &OutputFormat) -> String {
+    pub fn to_formatted_string(&self, format: &OutputFormat) -> Result<String> {
         format.format(self)
     }
 
@@ -35,7 +38,7 @@ impl ParsedFiles {
 }
 
 /// ParsedFile represents a whole file of parsed lines.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ParsedFile {
     pub file: OsString,
     pub lines: Vec<ParsedLine>,

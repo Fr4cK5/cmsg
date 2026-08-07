@@ -16,14 +16,19 @@ pub struct List {
 }
 
 impl List {
-    pub fn run(&self, files: &ParsedFiles, output: &OutputFormat) {
+    pub fn run(&self, files: &ParsedFiles, output: &OutputFormat) -> Result<()> {
         let output = if self.copy {
             files.to_formatted_string(&OutputFormat::Vim)
         } else {
             files.to_formatted_string(output)
         };
 
-        println!("{output}");
+        match &output {
+            Ok(output) => println!("{output}"),
+            Err(err) => eprintln!("{err}"),
+        }
+
+        output.map(|_| ())
     }
 }
 
@@ -31,7 +36,7 @@ impl List {
 pub struct Count;
 
 impl Count {
-    pub fn run(files: &ParsedFiles, output: &OutputFormat) {
+    pub fn run(files: &ParsedFiles, output: &OutputFormat) -> Result<()> {
         let file_count = files.0.len();
         let line_count = files.0.iter().map(|item| item.lines.len()).sum::<usize>();
 
@@ -46,6 +51,8 @@ impl Count {
                 println!(r#"{{ "files": {}, "lines": {} }}"#, file_count, line_count)
             }
         }
+
+        Ok(())
     }
 }
 
@@ -62,7 +69,7 @@ pub struct Commit {
 
 impl Commit {
     pub fn run(&self, files: &ParsedFiles, config: &Config) -> Result<()> {
-        List::default().run(files, &OutputFormat::Vim);
+        List::default().run(files, &OutputFormat::Vim)?;
 
         let mut buf: [u8; 128] = [0u8; 128];
         fastrand::fill(&mut buf);

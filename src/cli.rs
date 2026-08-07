@@ -84,12 +84,12 @@ impl Display for OutputFormat {
 }
 
 impl OutputFormat {
-    pub fn format(&self, entries: &ParsedFiles) -> String {
-        match *self {
+    pub fn format(&self, entries: &ParsedFiles) -> Result<String> {
+        Ok(match *self {
             Self::Natural => NaturalFormatter::format(entries),
             Self::Vim => VimFormatter::format(entries),
-            Self::Json => JsonFormatter::format(entries),
-        }
+            Self::Json => JsonFormatter::format(entries)?,
+        })
     }
 }
 
@@ -109,6 +109,12 @@ pub enum Action {
 
     #[command(name = "count", about = "Count all occurences of .cmsg markers")]
     Count,
+
+    #[command(
+        name = "clean",
+        about = "Clean all data directories, reclaiming some storage space"
+    )]
+    Clean,
 }
 
 impl Default for Action {
