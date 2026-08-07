@@ -7,10 +7,10 @@ use crate::{app::App, cli::Cli};
 mod app;
 mod cli;
 mod cmd_action;
+mod hash;
 mod parser;
 mod walker;
 mod writer;
-mod hash;
 
 fn main() -> Result<()> {
     let cli_args = Cli::parse_and_validate();

@@ -1,5 +1,3 @@
-//.git-keep
-
 use std::{
     fs,
     path::PathBuf,
@@ -10,7 +8,9 @@ use std::{
 use ignore::{WalkBuilder, WalkParallel, WalkState};
 
 use crate::{
-    cli::Cli, hash, parser::{ParsedFile, ParsedFiles, Parser}
+    cli::Cli,
+    hash,
+    parser::{ParsedFile, ParsedFiles, Parser},
 };
 
 pub struct Walker {
@@ -86,7 +86,9 @@ impl Walker {
                         let result = parser.parse();
 
                         if !result.is_empty() {
-                            out_sender.send(ParsedFile::new(file_name, result, digest)).ok();
+                            out_sender
+                                .send(ParsedFile::new(file_name, result, digest))
+                                .ok();
                         }
                     }
                 });

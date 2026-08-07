@@ -1,5 +1,3 @@
-//.git-keep
-
 use std::fmt::Write as _;
 
 use crate::parser::ParsedFiles;

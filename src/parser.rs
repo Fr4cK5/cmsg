@@ -21,7 +21,6 @@ impl ParsedLine {
     }
 }
 
-// pub type ParsedFiles = Vec<ParsedFile>;
 #[derive(Debug, Clone)]
 pub struct ParsedFiles(pub Vec<ParsedFile>);
 
