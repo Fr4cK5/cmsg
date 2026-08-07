@@ -74,9 +74,10 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            // TODO: This will eventually change to something like $HOME/{.cache,AppData/Local}/cmsg
-            data_directory: PathBuf::from(".git/cmsg"),
-            storage_strategy: StorageStrategy::GlobalFallback,
+            data_directory: StorageStrategy::default()
+                .locate_data_dir()
+                .expect("Unable to find any suitable storage directory.\nThis error signifies that there was no project-local .git directory and your home directory could not be found."),
+            storage_strategy: StorageStrategy::default(),
         }
     }
 }

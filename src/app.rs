@@ -18,7 +18,7 @@ impl App {
     pub fn new(cli: Cli) -> Self {
         Self {
             cli,
-            config: Config::load(StorageStrategy::GlobalFallback)
+            config: Config::load(StorageStrategy::default())
                 .ok()
                 .unwrap_or_default(),
         }
