@@ -1,8 +1,17 @@
-use std::{fs, path::PathBuf};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 use eyre::{Result, eyre};
 
-use crate::{cli::OutputFormat, config::Config, hash, parser::ParsedFiles};
+use crate::{
+    cli::OutputFormat,
+    config::Config,
+    hash,
+    meta::{MetadataRepo, types::Backup},
+    parser::ParsedFiles,
+};
 
 #[derive(Debug, Clone, Default, clap::Parser)]
 pub struct List {
@@ -68,21 +77,41 @@ pub struct Commit {
 }
 
 impl Commit {
-    pub fn run(&self, files: &ParsedFiles, output: &OutputFormat, config: &Config) -> Result<()> {
-        List::default().run(files, output)?;
+    pub fn run(
+        &self,
+        files: &ParsedFiles,
+        output: &OutputFormat,
+        config: &Config,
+        repo: &MetadataRepo,
+    ) -> Result<()> {
+        if files.0.is_empty() {
+            return Ok(());
+        }
 
-        let mut buf: [u8; 128] = [0u8; 128];
+        List::default().run(files, output)?;
+        let backup = Self::create_backup(files, &config.data_directory)?;
+
+        let mut conn = repo.connection.borrow_mut();
+        let tx = conn.transaction()?;
+        let data_directory_id = MetadataRepo::upsert_path(&tx, &config.data_directory)?;
+        MetadataRepo::insert_backup_record(&tx, &backup, data_directory_id)?;
+
+        Ok(tx.commit()?)
+    }
+
+    fn create_backup(files: &ParsedFiles, data_dir: &Path) -> Result<Backup> {
+        let mut buf = [0u8; 256];
         fastrand::fill(&mut buf);
         let digest = hash::sha256_digest_alloc(&buf);
-        let storage_dir = config.data_directory.join(digest);
+        let backup_root = data_dir.join(&digest);
 
-        fs::create_dir_all(&storage_dir).map_err(|err| {
+        fs::create_dir_all(&backup_root).map_err(|err| {
             eyre!("{err}: Failed to create storage directory, your files have not been touched.")
         })?;
 
         for file in &files.0 {
             let source = file.file.as_os_str();
-            let destination = storage_dir.join(source);
+            let destination = backup_root.join(source);
             let destination_parent = destination
                 .parent()
                 .map(ToOwned::to_owned)
@@ -104,7 +133,11 @@ impl Commit {
             })?;
         }
 
-        Ok(())
+        Ok(Backup {
+            digest,
+            data_directory: data_dir.to_owned(),
+            backup_root,
+        })
     }
 }
 

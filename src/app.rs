@@ -6,21 +6,24 @@ use crate::{
     cli::{Action, Cli},
     cmd_action::Count,
     config::{Config, StorageStrategy},
+    meta::MetadataRepo,
     walker::Walker,
 };
 
 pub struct App {
     cli: Cli,
     config: Config,
+    metadata_repo: MetadataRepo,
 }
 
 impl App {
-    pub fn new(cli: Cli) -> Self {
+    pub fn new(cli: Cli, metadata_repo: MetadataRepo) -> Self {
         Self {
             cli,
             config: Config::load(StorageStrategy::default())
                 .ok()
                 .unwrap_or_default(),
+            metadata_repo,
         }
     }
 
@@ -32,7 +35,12 @@ impl App {
 
         match self.cli.action.as_ref().unwrap_or(&Action::default()) {
             Action::List(list) => list.run(&parsed_files, &self.cli.format),
-            Action::Commit(commit) => commit.run(&parsed_files, &self.cli.format, &self.config),
+            Action::Commit(commit) => commit.run(
+                &parsed_files,
+                &self.cli.format,
+                &self.config,
+                &self.metadata_repo,
+            ),
             Action::Undo => todo!(),
             Action::Count => Count::run(&parsed_files, &self.cli.format),
             Action::Clean(_clean) => {

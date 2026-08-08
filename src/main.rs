@@ -2,23 +2,26 @@ use std::time::Instant;
 
 use eyre::Result;
 
-use crate::{app::App, cli::Cli};
+use crate::{app::App, cli::Cli, meta::MetadataRepo};
+
+pub const CREATE_DB: &str = include_str!("../sql/create_db.sql");
 
 mod app;
 mod cli;
 mod cmd_action;
 mod config;
 mod hash;
+mod meta;
 mod parser;
 mod walker;
 mod writer;
 
 fn main() -> Result<()> {
-    let cli_args = Cli::parse_and_validate();
-
     let start = Instant::now();
 
-    App::new(cli_args).run()?;
+    let cli_args = Cli::parse_and_validate();
+    let metadata_repo = MetadataRepo::new()?;
+    App::new(cli_args, metadata_repo).run()?;
 
     let elapsed = start.elapsed();
     dbg!(elapsed);
