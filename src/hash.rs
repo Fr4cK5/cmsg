@@ -22,9 +22,12 @@ fn hex(buf: &mut String, blob: &[u8]) -> usize {
 pub fn sha256_digest_alloc(content: &[u8]) -> String {
     // important(perf): Update this alongside the algorithm should it ever change.
     const DIGEST_SIZE: usize = 256;
-    const EFFECTIVE_BUF_SIZE: usize = DIGEST_SIZE * 2 / 8;
-    let digest = Sha256::digest(content);
 
+    // * 2 -> One byte results in 2 hex chars.
+    // / 8 -> The `DIGEST_SIZE` is measured in bits, not bytes.
+    const EFFECTIVE_BUF_SIZE: usize = DIGEST_SIZE * 2 / 8;
+
+    let digest = Sha256::digest(content);
     let mut hash_str = String::with_capacity(EFFECTIVE_BUF_SIZE);
     let written = hex(&mut hash_str, digest.as_slice());
 
