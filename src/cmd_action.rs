@@ -25,9 +25,9 @@ pub struct List {
 }
 
 impl List {
-    pub fn run(&self, files: &ParsedFiles, output: &OutputFormat) -> Result<()> {
+    pub fn run(&self, files: &ParsedFiles, output: OutputFormat) -> Result<()> {
         let output = if self.copy {
-            files.to_formatted_string(&OutputFormat::Vim)
+            files.to_formatted_string(OutputFormat::Vim)
         } else {
             files.to_formatted_string(output)
         };
@@ -45,7 +45,7 @@ impl List {
 pub struct Count;
 
 impl Count {
-    pub fn run(files: &ParsedFiles, output: &OutputFormat) -> Result<()> {
+    pub fn run(files: &ParsedFiles, output: OutputFormat) -> Result<()> {
         let file_count = files.0.len();
         let line_count = files.0.iter().map(|item| item.lines.len()).sum::<usize>();
 
@@ -80,7 +80,7 @@ impl Commit {
     pub fn run(
         &self,
         files: &ParsedFiles,
-        output: &OutputFormat,
+        output: OutputFormat,
         config: &Config,
         repo: &MetadataRepo,
     ) -> Result<()> {

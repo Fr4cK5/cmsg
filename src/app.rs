@@ -34,15 +34,18 @@ impl App {
         parsed_files.sort();
 
         match self.cli.action.as_ref().unwrap_or(&Action::default()) {
-            Action::List(list) => list.run(&parsed_files, &self.cli.format),
+            Action::List(list) => list.run(&parsed_files, self.cli.format),
             Action::Commit(commit) => commit.run(
                 &parsed_files,
-                &self.cli.format,
+                self.cli.format,
                 &self.config,
                 &self.metadata_repo,
             ),
-            Action::Undo => todo!(),
-            Action::Count => Count::run(&parsed_files, &self.cli.format),
+            Action::Reset => todo!(),
+            // Locate should print the base-dir/data-dir, the whole path to the back including the
+            // commit hash
+            Action::Locate => todo!(),
+            Action::Count => Count::run(&parsed_files, self.cli.format),
             Action::Clean(_clean) => {
                 // TODO: Default to only removing the project-local data dirs.
                 // Only remove all the data dirs if `all` is true
@@ -63,6 +66,8 @@ impl App {
                 }
 
                 if errors {
+                    // TODO: Improve this error message, as, according to the code, a failure due to
+                    // the target not existing should be impossible.
                     eprintln!(
                         "If the reported error is about not being able to find the specified directory you can safely ignore it.\nOtherwise something went wrong."
                     );

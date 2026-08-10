@@ -28,7 +28,7 @@ impl ParsedLine {
 pub struct ParsedFiles(pub Vec<ParsedFile>);
 
 impl ParsedFiles {
-    pub fn to_formatted_string(&self, format: &OutputFormat) -> Result<String> {
+    pub fn to_formatted_string(&self, format: OutputFormat) -> Result<String> {
         format.format(self)
     }
 

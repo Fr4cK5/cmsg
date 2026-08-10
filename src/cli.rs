@@ -100,15 +100,24 @@ pub enum Action {
 
     #[command(
         name = "commit",
-        about = "List all occurences of .cmsg markers, remove them from the code, and return a hash for undoing the commit should this mess up the code"
+        about = "List all occurences of .cmsg markers, remove them from the code, and return a hash to reset to should this mess up the code"
     )]
     Commit(Commit),
 
-    #[command(name = "undo", about = "Undo a previous commit based on a hash")]
-    Undo,
+    #[command(
+        name = "reset",
+        about = "Reset to some previously commited state based on a hash"
+    )]
+    Reset,
 
     #[command(name = "count", about = "Count all occurences of .cmsg markers")]
     Count,
+
+    #[command(
+        name = "locate",
+        about = "Show the the directory where a specific backup's files reside on the file system based on a hash"
+    )]
+    Locate,
 
     #[command(
         name = "clean",

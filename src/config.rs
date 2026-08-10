@@ -57,7 +57,7 @@ impl StorageStrategy {
             if cfg!(target_os = "windows") {
                 dir.join("AppData/Local/cmsg")
             } else {
-                dir.join(".cache/cmsg")
+                dir.join(".local/share/cmsg")
             }
         })
     }
