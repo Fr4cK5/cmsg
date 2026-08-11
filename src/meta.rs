@@ -12,7 +12,7 @@ use crate::{config::StorageStrategy, meta::types::Backup};
 pub mod types;
 
 pub struct MetadataRepo {
-    pub connection: RefCell<Connection>,
+    connection: RefCell<Connection>,
 }
 
 impl MetadataRepo {
@@ -69,14 +69,50 @@ impl MetadataRepo {
         })?)
     }
 
-    pub fn with_transaction<T, F>(&self, f: F) -> Result<T>
+    pub fn fetch_hashes_for_data_directory(
+        tx: &Transaction,
+        data_dir: &Path,
+    ) -> Result<Option<(Vec<String>, i64)>> {
+        let mut prepared = tx.prepare("select id from data_directory where path = :path")?;
+        let Ok(id) = prepared.query_one(
+            named_params! {
+                ":path": data_dir.to_str()
+            },
+            |row| row.get::<_, i64>("id"),
+        ) else {
+            return Ok(None);
+        };
+
+        let mut prepared =
+            tx.prepare("select digest from backup_entry where data_directory_id = :dd_id")?;
+        let commit_hashes = prepared
+            .query_map(
+                named_params! {
+                    ":dd_id": id,
+                },
+                |row| row.get::<_, String>(0),
+            )?
+            .flatten();
+
+        let mut rows = Vec::new();
+        for row in commit_hashes {
+            rows.push(row);
+        }
+
+        Ok(Some((rows, id)))
+    }
+
+    pub fn transaction<T, F>(&self, f: F) -> Result<T>
     where
         F: Fn(&Transaction) -> Result<T>,
     {
         let mut conn = self.connection.borrow_mut();
         let tx = conn.transaction()?;
         let result = f(&tx);
-        tx.commit()?;
+        match &result {
+            Ok(_) => tx.commit()?,
+            Err(_) => tx.rollback()?,
+        }
         result
     }
 }

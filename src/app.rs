@@ -1,10 +1,8 @@
-use std::fs;
-
 use eyre::Result;
 
 use crate::{
     cli::{Action, Cli},
-    cmd_action::Count,
+    cmd_action::{CmdData, Count},
     config::{Config, StorageStrategy},
     meta::MetadataRepo,
     walker::Walker,
@@ -33,37 +31,25 @@ impl App {
         let mut parsed_files = walker.walk();
         parsed_files.sort();
 
+        let cmd_data = CmdData {
+            files: &parsed_files,
+            output: self.cli.format,
+            config: &self.config,
+            repo: &self.metadata_repo,
+        };
+
         match self.cli.action.as_ref().unwrap_or(&Action::default()) {
-            Action::List(list) => list.run(&parsed_files, self.cli.format),
-            Action::Commit(commit) => commit.run(
-                &parsed_files,
-                self.cli.format,
-                &self.config,
-                &self.metadata_repo,
-            ),
+            // TODO: Perhaps rename List -> Show, and use List as the command for listing out all
+            // the entries, just like `git stash list`
+            // Don't forget to update the default impl for `Action`!
+            Action::List(list) => list.run(&cmd_data),
+            Action::Commit(commit) => commit.run(&cmd_data),
             Action::Reset => todo!(),
             // Locate should print the base-dir/data-dir, the whole path to the back including the
             // commit hash
             Action::Locate => todo!(),
-            Action::Count => Count::run(&parsed_files, self.cli.format),
-            Action::Clean(_clean) => {
-                // TODO: Default to only removing the project-local data dirs.
-                // Only remove all the data dirs if `all` is true
-                // This means we'll have to keep some metadata about the hashes and such.
-                for dir in [
-                    StorageStrategy::dotgit_data(),
-                    StorageStrategy::user_home_data(),
-                ] {
-                    if let Some(data) = dir
-                        && fs::exists(&data)?
-                        && let Err(e) = fs::remove_dir_all(&data)
-                    {
-                        eprintln!("{e}: Failed to remove project-local '{}'", data.display());
-                    }
-                }
-
-                Ok(())
-            }
+            Action::Count => Count::run(&cmd_data),
+            Action::Clean(clean) => clean.run(&cmd_data),
         }?;
 
         Ok(())

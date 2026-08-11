@@ -1,3 +1,6 @@
+// TODO: Unify usages of digest vs hash. I don't care which one you pick but it's important that you
+// pick one
+
 use std::time::Instant;
 
 use eyre::Result;

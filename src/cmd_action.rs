@@ -1,17 +1,26 @@
 use std::{
     fs,
+    ops::Sub as _,
     path::{Path, PathBuf},
 };
 
 use eyre::{Result, eyre};
+use rusqlite::named_params;
 
 use crate::{
     cli::OutputFormat,
-    config::Config,
+    config::{Config, StorageStrategy},
     hash,
     meta::{MetadataRepo, types::Backup},
     parser::ParsedFiles,
 };
+
+pub struct CmdData<'a> {
+    pub files: &'a ParsedFiles,
+    pub output: OutputFormat,
+    pub config: &'a Config,
+    pub repo: &'a MetadataRepo,
+}
 
 #[derive(Debug, Clone, Default, clap::Parser)]
 pub struct List {
@@ -25,11 +34,13 @@ pub struct List {
 }
 
 impl List {
-    pub fn run(&self, files: &ParsedFiles, output: OutputFormat) -> Result<()> {
+    pub fn run(&self, data: &CmdData) -> Result<()> {
         let output = if self.copy {
-            files.to_formatted_string(OutputFormat::Vim)
+            // TODO: Reconsider this. When using --copy, do we really want to force vim output?
+            // This kind of feels like an unnecessary constraint and too uselessly opinionated.
+            data.files.to_formatted_string(OutputFormat::Vim)
         } else {
-            files.to_formatted_string(output)
+            data.files.to_formatted_string(data.output)
         };
 
         match &output {
@@ -45,11 +56,16 @@ impl List {
 pub struct Count;
 
 impl Count {
-    pub fn run(files: &ParsedFiles, output: OutputFormat) -> Result<()> {
-        let file_count = files.0.len();
-        let line_count = files.0.iter().map(|item| item.lines.len()).sum::<usize>();
+    pub fn run(data: &CmdData) -> Result<()> {
+        let file_count = data.files.0.len();
+        let line_count = data
+            .files
+            .0
+            .iter()
+            .map(|item| item.lines.len())
+            .sum::<usize>();
 
-        match output {
+        match data.output {
             OutputFormat::Natural => {
                 println!("Files   : {}\nMessages: {}", file_count, line_count);
             }
@@ -65,6 +81,13 @@ impl Count {
     }
 }
 
+// TODO: Committing seems to be broken when specifiying a custom path (via -d <path>)
+//     - Assume this command: cargo run -- -d ../other-proj commit
+//     - This would create ./.git/cmsg/other-proj/...
+//                         ^           ^^^^^^^^^^ Should be a commit hash
+//                         | Local to ., not ../other-proj or ~/.local/share
+//     - I do not know about the state of the db, but I *think* it was left untouched.
+//     - Need to investigate further!
 #[derive(Debug, Clone, Default, clap::Parser)]
 pub struct Commit {
     #[arg(
@@ -77,22 +100,16 @@ pub struct Commit {
 }
 
 impl Commit {
-    pub fn run(
-        &self,
-        files: &ParsedFiles,
-        output: OutputFormat,
-        config: &Config,
-        repo: &MetadataRepo,
-    ) -> Result<()> {
-        if files.0.is_empty() {
+    pub fn run(&self, data: &CmdData) -> Result<()> {
+        if data.files.0.is_empty() {
             return Ok(());
         }
 
-        List::default().run(files, output)?;
-        let backup = Self::create_backup(files, &config.data_directory)?;
+        List::default().run(data)?;
+        let backup = Self::create_backup(data.files, &data.config.data_directory)?;
 
-        repo.with_transaction(|tx| {
-            let data_directory_id = MetadataRepo::upsert_path(tx, &config.data_directory)?;
+        data.repo.transaction(|tx| {
+            let data_directory_id = MetadataRepo::upsert_path(tx, &data.config.data_directory)?;
             MetadataRepo::insert_backup_record(tx, &backup, data_directory_id)?;
             Ok(())
         })
@@ -143,10 +160,109 @@ impl Commit {
 #[derive(Debug, Clone, Default, clap::Parser)]
 pub struct Clean {
     #[arg(
-        short,
+        short = 'a',
         long,
         default_value_t = false,
         help = "Remove *all* data directories instead of just the one's belonging to the local project."
     )]
-    pub all: bool,
+    pub remove_all: bool,
+}
+
+impl Clean {
+    pub fn run(&self, data: &CmdData) -> Result<()> {
+        if self.remove_all {
+            self.remove_all()
+        } else {
+            self.remove_local(data)
+        }
+    }
+
+    fn fetch_metadata(&self, data: &CmdData) -> Result<Option<(Vec<String>, i64)>> {
+        data.repo.transaction(|tx| {
+            MetadataRepo::fetch_hashes_for_data_directory(tx, &data.config.data_directory)
+        })
+    }
+
+    fn remove_local(&self, data: &CmdData) -> Result<()> {
+        let (commit_hashes, data_directory_id) = match self.fetch_metadata(data) {
+            Ok(None) => return Ok(()),
+            Ok(Some((rows, id))) => (rows, id),
+            Err(e) => return Err(e),
+        };
+
+        data.repo.transaction(|tx| {
+            let mut prepared = tx.prepare("delete from backup_entry where digest = :digest")?;
+            for commit_hash in &commit_hashes {
+                let dir = PathBuf::from(&data.config.data_directory).join(commit_hash);
+                if fs::exists(&dir)?
+                    && let Err(err) = fs::remove_dir_all(&dir)
+                {
+                    return Err(eyre!("{err}: Failed to remove entry '{}'", dir.display()));
+                }
+
+                prepared.execute(named_params! {
+                    ":digest": &commit_hash,
+                })?;
+            }
+
+            let mut prepared = tx.prepare("delete from data_directory where id = :id")?;
+            prepared.execute(named_params! {
+                ":id": data_directory_id,
+            })?;
+
+            Ok(())
+        })?;
+
+        match data.output {
+            OutputFormat::Natural => {
+                println!("Removed the following entries:");
+                for commit_hash in commit_hashes {
+                    println!("{commit_hash}");
+                }
+            }
+            OutputFormat::Vim => {
+                for commit_hash in commit_hashes {
+                    println!("{commit_hash}");
+                }
+            }
+            OutputFormat::Json => {
+                let capacity = 2 // []
+                + commit_hashes.len() * (hash::EFFECTIVE_BUF_SIZE + 2) // "<commit-hash>"
+                + commit_hashes.len().sub(1); // ,
+
+                let mut buf = String::with_capacity(capacity);
+
+                buf.push('[');
+                for (idx, commit_hash) in commit_hashes.iter().enumerate() {
+                    buf.push('"');
+                    buf.push_str(commit_hash);
+                    buf.push('"');
+                    if idx + 1 != commit_hashes.len() {
+                        buf.push(',');
+                    }
+                }
+                buf.push(']');
+
+                print!("{buf}");
+            }
+        }
+
+        Ok(())
+    }
+
+    fn remove_all(&self) -> Result<()> {
+        for dir in [
+            StorageStrategy::dotgit_data(),
+            StorageStrategy::user_home_data(),
+        ] {
+            if let Some(data) = dir
+                && fs::exists(&data)?
+                && let Err(e) = fs::remove_dir_all(&data)
+            {
+                eprintln!("{e}: Failed to remove project-local '{}'", data.display());
+            }
+        }
+
+        Ok(())
+    }
 }
