@@ -91,12 +91,11 @@ impl Commit {
         List::default().run(files, output)?;
         let backup = Self::create_backup(files, &config.data_directory)?;
 
-        let mut conn = repo.connection.borrow_mut();
-        let tx = conn.transaction()?;
-        let data_directory_id = MetadataRepo::upsert_path(&tx, &config.data_directory)?;
-        MetadataRepo::insert_backup_record(&tx, &backup, data_directory_id)?;
-
-        Ok(tx.commit()?)
+        repo.with_transaction(|tx| {
+            let data_directory_id = MetadataRepo::upsert_path(tx, &config.data_directory)?;
+            MetadataRepo::insert_backup_record(tx, &backup, data_directory_id)?;
+            Ok(())
+        })
     }
 
     fn create_backup(files: &ParsedFiles, data_dir: &Path) -> Result<Backup> {

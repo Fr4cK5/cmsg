@@ -29,6 +29,8 @@ pub fn sha256_digest_alloc(content: &[u8]) -> String {
 
     let digest = Sha256::digest(content);
     let mut hash_str = String::with_capacity(EFFECTIVE_BUF_SIZE);
+
+    #[allow(unused_variables)] // due to this only being used in debug mode
     let written = hex(&mut hash_str, digest.as_slice());
 
     #[cfg(debug_assertions)]

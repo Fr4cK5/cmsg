@@ -50,8 +50,6 @@ impl App {
                 // TODO: Default to only removing the project-local data dirs.
                 // Only remove all the data dirs if `all` is true
                 // This means we'll have to keep some metadata about the hashes and such.
-                let mut errors = false;
-
                 for dir in [
                     StorageStrategy::dotgit_data(),
                     StorageStrategy::user_home_data(),
@@ -61,16 +59,7 @@ impl App {
                         && let Err(e) = fs::remove_dir_all(&data)
                     {
                         eprintln!("{e}: Failed to remove project-local '{}'", data.display());
-                        errors = true;
                     }
-                }
-
-                if errors {
-                    // TODO: Improve this error message, as, according to the code, a failure due to
-                    // the target not existing should be impossible.
-                    eprintln!(
-                        "If the reported error is about not being able to find the specified directory you can safely ignore it.\nOtherwise something went wrong."
-                    );
                 }
 
                 Ok(())

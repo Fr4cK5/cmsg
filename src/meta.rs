@@ -68,4 +68,15 @@ impl MetadataRepo {
             ":dir_id": data_directory_id,
         })?)
     }
+
+    pub fn with_transaction<T, F>(&self, f: F) -> Result<T>
+    where
+        F: Fn(&Transaction) -> Result<T>,
+    {
+        let mut conn = self.connection.borrow_mut();
+        let tx = conn.transaction()?;
+        let result = f(&tx);
+        tx.commit()?;
+        result
+    }
 }
