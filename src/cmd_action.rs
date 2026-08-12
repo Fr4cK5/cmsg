@@ -81,13 +81,6 @@ impl Count {
     }
 }
 
-// TODO: Committing seems to be broken when specifiying a custom path (via -d <path>)
-//     - Assume this command: cargo run -- -d ../other-proj commit
-//     - This would create ./.git/cmsg/other-proj/...
-//                         ^           ^^^^^^^^^^ Should be a commit hash
-//                         | Local to ., not ../other-proj or ~/.local/share
-//     - I do not know about the state of the db, but I *think* it was left untouched.
-//     - Need to investigate further!
 #[derive(Debug, Clone, Default, clap::Parser)]
 pub struct Commit {
     #[arg(
@@ -252,7 +245,8 @@ impl Clean {
 
     fn remove_all(&self) -> Result<()> {
         for dir in [
-            StorageStrategy::dotgit_data(),
+            // TODO(high): Query DB for all project-local (.git/cmsg) data directories
+            // StorageStrategy::dotgit_data(),
             StorageStrategy::user_home_data(),
         ] {
             if let Some(data) = dir

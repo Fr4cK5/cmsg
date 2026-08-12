@@ -1,8 +1,13 @@
-use std::time::Instant;
+use std::{path::PathBuf, time::Instant};
 
 use eyre::Result;
 
-use crate::{app::App, cli::Cli, meta::MetadataRepo};
+use crate::{
+    app::App,
+    cli::Cli,
+    config::{Config, StorageStrategy},
+    meta::MetadataRepo,
+};
 
 pub const CREATE_DB: &str = include_str!("../sql/create_db.sql");
 
@@ -20,8 +25,17 @@ fn main() -> Result<()> {
     let start = Instant::now();
 
     let cli_args = Cli::parse_and_validate();
-    let metadata_repo = MetadataRepo::new()?;
-    App::new(cli_args, metadata_repo).run()?;
+
+    let config = Config::load(
+        &PathBuf::from(&cli_args.base_directory),
+        StorageStrategy::default(),
+    )
+    .ok()
+    .unwrap_or_default();
+
+    let metadata_repo = MetadataRepo::new(&config.data_directory)?;
+
+    App::new(cli_args, config, metadata_repo).run()?;
 
     let elapsed = start.elapsed();
     dbg!(elapsed);

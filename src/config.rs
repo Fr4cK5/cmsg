@@ -2,7 +2,7 @@ use std::{
     env::{self},
     fmt::Display,
     fs,
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 
 use eyre::{OptionExt, Result, eyre};
@@ -27,17 +27,18 @@ impl Display for StorageStrategy {
 }
 
 impl StorageStrategy {
-    pub fn locate_data_dir(self) -> Option<PathBuf> {
+    pub fn locate_data_dir(self, path: &Path) -> Option<PathBuf> {
         match self {
-            StorageStrategy::GlobalFallback => Self::dotgit_data().or_else(Self::user_home_data),
+            StorageStrategy::GlobalFallback => {
+                Self::dotgit_data(path).or_else(Self::user_home_data)
+            }
             StorageStrategy::Global => Self::user_home_data(),
-            StorageStrategy::DotGitOnly => Self::dotgit_data(),
+            StorageStrategy::DotGitOnly => Self::dotgit_data(path),
         }
     }
 
-    pub fn dotgit_data() -> Option<PathBuf> {
-        let cwd = env::current_dir().ok()?;
-        let parts = cwd.iter().collect::<Vec<_>>();
+    pub fn dotgit_data(path: &Path) -> Option<PathBuf> {
+        let parts = path.iter().collect::<Vec<_>>();
         let mut parts = (1..=parts.len())
             .flat_map(|i| {
                 let path = parts.iter().take(i).collect::<PathBuf>().join(".git");
@@ -75,7 +76,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             data_directory: StorageStrategy::default()
-                .locate_data_dir()
+                .locate_data_dir(&env::current_dir().expect("Unable to get cwd"))
                 .expect("Unable to find any suitable storage directory.\nThis error signifies that there was no project-local .git directory and your home directory could not be found."),
             storage_strategy: StorageStrategy::default(),
         }
@@ -83,9 +84,11 @@ impl Default for Config {
 }
 
 impl Config {
-    pub fn load(storage_strategy: StorageStrategy) -> Result<Self> {
+    pub fn load(path: &Path, storage_strategy: StorageStrategy) -> Result<Self> {
+        let path = path.canonicalize()?;
+
         let path = storage_strategy
-            .locate_data_dir()
+            .locate_data_dir(&path)
             .ok_or_eyre(eyre!("Unable to locate suitable data directory according to storage strategy {storage_strategy}"))?;
 
         Ok(Self {

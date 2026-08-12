@@ -16,9 +16,9 @@ pub struct MetadataRepo {
 }
 
 impl MetadataRepo {
-    pub fn new() -> Result<Self> {
+    pub fn new(path: &Path) -> Result<Self> {
         let path = StorageStrategy::Global
-            .locate_data_dir()
+            .locate_data_dir(path)
             .unwrap_or_else(|| PathBuf::from("."));
 
         fs::create_dir_all(&path)?;

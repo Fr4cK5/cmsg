@@ -3,7 +3,7 @@ use eyre::Result;
 use crate::{
     cli::{Action, Cli},
     cmd_action::{CmdData, Count},
-    config::{Config, StorageStrategy},
+    config::Config,
     meta::MetadataRepo,
     walker::Walker,
 };
@@ -15,12 +15,10 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(cli: Cli, metadata_repo: MetadataRepo) -> Self {
+    pub fn new(cli: Cli, config: Config, metadata_repo: MetadataRepo) -> Self {
         Self {
             cli,
-            config: Config::load(StorageStrategy::default())
-                .ok()
-                .unwrap_or_default(),
+            config,
             metadata_repo,
         }
     }
