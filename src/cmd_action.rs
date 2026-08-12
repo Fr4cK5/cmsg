@@ -118,8 +118,8 @@ impl Commit {
     fn create_backup(files: &ParsedFiles, data_dir: &Path) -> Result<Backup> {
         let mut buf = [0u8; 256];
         fastrand::fill(&mut buf);
-        let digest = hash::sha256_digest_alloc(&buf);
-        let backup_root = data_dir.join(&digest);
+        let backup_hash = hash::sha256_hash_alloc(&buf);
+        let backup_root = data_dir.join(&backup_hash);
 
         fs::create_dir_all(&backup_root).map_err(|err| {
             eyre!("{err}: Failed to create storage directory, your files have not been touched.")
@@ -150,7 +150,7 @@ impl Commit {
         }
 
         Ok(Backup {
-            digest,
+            backup_hash,
             data_directory: data_dir.to_owned(),
             backup_root,
         })
@@ -191,7 +191,7 @@ impl Clean {
         };
 
         data.repo.transaction(|tx| {
-            let mut prepared = tx.prepare("delete from backup_entry where digest = :digest")?;
+            let mut prepared = tx.prepare("delete from backup_entry where hash = :hash")?;
             for commit_hash in &commit_hashes {
                 let dir = PathBuf::from(&data.config.data_directory).join(commit_hash);
                 if fs::exists(&dir)?
@@ -201,7 +201,7 @@ impl Clean {
                 }
 
                 prepared.execute(named_params! {
-                    ":digest": &commit_hash,
+                    ":hash": &commit_hash,
                 })?;
             }
 

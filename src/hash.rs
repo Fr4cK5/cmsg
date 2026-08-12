@@ -1,5 +1,10 @@
 use sha2::{Digest, Sha256};
 
+// README: A note about the usage of "digest" vs "hash".
+//   The codebase usually uses hash, preferring to overspecify for file-hash, backup-hash, etc.
+//   This is the only place where digest is applicable, as it is the bridge to external libs
+//   which themselves prefer to call it a digest. Usage of digest is fine here, and only here.
+
 // important(perf): Update this alongside the algorithm should it ever change.
 const DIGEST_SIZE: usize = 256;
 
@@ -26,12 +31,12 @@ fn hex(buf: &mut String, blob: &[u8]) -> usize {
     written
 }
 
-pub fn sha256_digest_alloc(content: &[u8]) -> String {
-    let digest = Sha256::digest(content);
+pub fn sha256_hash_alloc(content: &[u8]) -> String {
+    let hash = Sha256::digest(content);
     let mut hash_str = String::with_capacity(EFFECTIVE_BUF_SIZE);
 
     #[allow(unused_variables)] // due to this only being used in debug mode
-    let written = hex(&mut hash_str, digest.as_slice());
+    let written = hex(&mut hash_str, hash.as_slice());
 
     #[cfg(debug_assertions)]
     if written != EFFECTIVE_BUF_SIZE {

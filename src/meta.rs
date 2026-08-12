@@ -60,11 +60,11 @@ impl MetadataRepo {
         data_directory_id: i64,
     ) -> Result<i64> {
         let mut prepared = tx.prepare(
-            "insert into backup_entry (digest, data_directory_id) values (:digest, :dir_id)",
+            "insert into backup_entry (hash, data_directory_id) values (:hash, :dir_id)",
         )?;
 
         Ok(prepared.insert(named_params! {
-            ":digest": &backup.digest,
+            ":hash": &backup.backup_hash,
             ":dir_id": data_directory_id,
         })?)
     }
@@ -84,7 +84,7 @@ impl MetadataRepo {
         };
 
         let mut prepared =
-            tx.prepare("select digest from backup_entry where data_directory_id = :dd_id")?;
+            tx.prepare("select hash from backup_entry where data_directory_id = :dd_id")?;
         let commit_hashes = prepared
             .query_map(
                 named_params! {

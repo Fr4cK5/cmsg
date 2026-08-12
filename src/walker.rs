@@ -81,13 +81,13 @@ impl Walker {
                         };
 
                         let file_name = path.into_os_string();
-                        let digest = hash::sha256_digest_alloc(content.as_bytes());
+                        let file_hash = hash::sha256_hash_alloc(content.as_bytes());
                         let mut parser = Parser::new(&content);
                         let result = parser.parse();
 
                         if !result.is_empty() {
                             out_sender
-                                .send(ParsedFile::new(file_name, result, digest))
+                                .send(ParsedFile::new(file_name, result, file_hash))
                                 .ok();
                         }
                     }
