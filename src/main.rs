@@ -1,4 +1,6 @@
-use std::{path::PathBuf, time::Instant};
+#![feature(normalize_lexically)]
+
+use std::time::Instant;
 
 use eyre::Result;
 
@@ -18,6 +20,7 @@ mod config;
 mod hash;
 mod meta;
 mod parser;
+mod pathutil;
 mod walker;
 mod writer;
 
@@ -27,13 +30,13 @@ fn main() -> Result<()> {
     let cli_args = Cli::parse_and_validate();
 
     let config = Config::load(
-        &PathBuf::from(&cli_args.base_directory),
+        &pathutil::normalize(&cli_args.base_directory)?,
         StorageStrategy::default(),
     )
     .ok()
     .unwrap_or_default();
 
-    let metadata_repo = MetadataRepo::new(&config.data_directory)?;
+    let metadata_repo = MetadataRepo::new()?;
 
     App::new(cli_args, config, metadata_repo).run()?;
 

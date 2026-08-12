@@ -1,10 +1,6 @@
-use std::{
-    cell::RefCell,
-    fs,
-    path::{Path, PathBuf},
-};
+use std::{cell::RefCell, fs, path::Path};
 
-use eyre::{Result, eyre};
+use eyre::{OptionExt, Result, eyre};
 use rusqlite::{Connection, Transaction, named_params};
 
 use crate::{config::StorageStrategy, meta::types::Backup};
@@ -16,13 +12,14 @@ pub struct MetadataRepo {
 }
 
 impl MetadataRepo {
-    pub fn new(path: &Path) -> Result<Self> {
-        let path = StorageStrategy::Global
-            .locate_data_dir(path)
-            .unwrap_or_else(|| PathBuf::from("."));
+    pub fn new() -> Result<Self> {
+        let db_file = StorageStrategy::user_home_db()?;
+        let path = db_file.parent().ok_or_eyre(eyre!(
+            "Unable to get parent directory of given database path '{}'",
+            &db_file.display()
+        ))?;
 
-        fs::create_dir_all(&path)?;
-        let db_file = path.join("data.db");
+        fs::create_dir_all(path)?;
 
         let conn = Connection::open(&db_file)?;
         conn.execute_batch(crate::CREATE_DB)

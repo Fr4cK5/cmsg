@@ -5,6 +5,7 @@ use std::{
     thread,
 };
 
+use eyre::Result;
 use ignore::{WalkBuilder, WalkParallel, WalkState};
 
 use crate::{
@@ -14,12 +15,15 @@ use crate::{
 };
 
 pub struct Walker {
+    walk_base: PathBuf,
     walker: WalkParallel,
 }
 
 impl Walker {
-    pub fn build_from(cli: &Cli) -> Self {
-        let walker = WalkBuilder::new(&cli.base_directory)
+    pub fn build_from(cli: &Cli) -> Result<Self> {
+        let walk_base = PathBuf::from(&cli.base_directory).canonicalize()?;
+
+        let walker = WalkBuilder::new(&walk_base)
             .ignore(!cli.no_ignore)
             .git_ignore(!cli.no_ignore)
             .git_global(!cli.no_ignore)
@@ -28,7 +32,7 @@ impl Walker {
             .add_custom_ignore_filename(".fdignore")
             .build_parallel();
 
-        Self { walker }
+        Ok(Self { walk_base, walker })
     }
 
     pub fn walk(self) -> ParsedFiles {
@@ -60,6 +64,10 @@ impl Walker {
             let (join_sender, join_receiver) = mpsc::channel::<ParsedFile>();
 
             for _ in 0..threads {
+                // TODO: Use this with the pathdiff crate. Apparently it lets us do the thing we
+                // need to, to get a path relative to the walk_base instead of an absolute one.
+                // let walk_base = self.walk_base.clone();
+
                 // Into parser
                 let (in_sender, in_receiver) = mpsc::channel::<PathBuf>();
 
@@ -84,6 +92,7 @@ impl Walker {
                         let file_hash = hash::sha256_hash_alloc(content.as_bytes());
                         let mut parser = Parser::new(&content);
                         let result = parser.parse();
+                        eprintln!("{}", file_name.display());
 
                         if !result.is_empty() {
                             out_sender

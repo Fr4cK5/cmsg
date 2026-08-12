@@ -9,10 +9,11 @@ use rusqlite::named_params;
 
 use crate::{
     cli::OutputFormat,
-    config::{Config, StorageStrategy},
+    config::Config,
     hash,
     meta::{MetadataRepo, types::Backup},
     parser::ParsedFiles,
+    pathutil,
 };
 
 pub struct CmdData<'a> {
@@ -120,11 +121,14 @@ impl Commit {
 
         for file in &files.0 {
             let source = file.file.as_os_str();
-            let destination = backup_root.join(source);
+            let destination = pathutil::normalize(backup_root.join(source))?;
             let destination_parent = destination
                 .parent()
                 .map(ToOwned::to_owned)
                 .unwrap_or_else(|| PathBuf::from("."));
+
+            dbg!(source, &destination, &destination_parent, &backup_root);
+            None::<i32>.expect("balls");
 
             fs::create_dir_all(&destination_parent).map_err(|err| {
                 eyre!(
@@ -164,7 +168,7 @@ pub struct Clean {
 impl Clean {
     pub fn run(&self, data: &CmdData) -> Result<()> {
         if self.remove_all {
-            self.remove_all()
+            self.remove_all(data)
         } else {
             self.remove_local(data)
         }
@@ -210,7 +214,7 @@ impl Clean {
             OutputFormat::Natural => {
                 println!("Removed the following entries:");
                 for commit_hash in commit_hashes {
-                    println!("{commit_hash}");
+                    println!("  {commit_hash}");
                 }
             }
             OutputFormat::Vim => {
@@ -243,17 +247,64 @@ impl Clean {
         Ok(())
     }
 
-    fn remove_all(&self) -> Result<()> {
-        for dir in [
-            // TODO(high): Query DB for all project-local (.git/cmsg) data directories
-            // StorageStrategy::dotgit_data(),
-            StorageStrategy::user_home_data(),
-        ] {
-            if let Some(data) = dir
-                && fs::exists(&data)?
-                && let Err(e) = fs::remove_dir_all(&data)
-            {
-                eprintln!("{e}: Failed to remove project-local '{}'", data.display());
+    fn remove_all(&self, data: &CmdData) -> Result<()> {
+        let directories = data.repo.transaction(|tx| {
+            let mut prepared = tx.prepare("select path from data_directory")?;
+            let rows = prepared.query_map([], |row| row.get::<_, String>(0))?;
+            let mut directories = Vec::new();
+            for row in rows.flatten() {
+                directories.push(row)
+            }
+
+            Ok(directories)
+        })?;
+
+        data.repo.transaction(|tx| {
+            let mut prepared = tx.prepare("delete from data_directory where path = :path")?;
+            for dir in &directories {
+                if fs::exists(dir).unwrap_or_default()
+                // && let Err(e) = fs::remove_dir_all(dir)
+                {
+                    // TODO: Test and remove the dry-run behavior
+                    eprintln!("Would remove: {dir}");
+                    // eprintln!("{e}: Failed to remove data directory '{dir}'");
+                } else {
+                    prepared.execute(named_params! {
+                        ":path": &dir,
+                    })?;
+                }
+            }
+
+            Ok(())
+        })?;
+
+        match data.output {
+            OutputFormat::Natural => {
+                println!("Removed the following data directories:");
+                for dir in directories {
+                    println!("  {dir}");
+                }
+            }
+            OutputFormat::Vim => {
+                for dir in directories {
+                    println!("{dir}");
+                }
+            }
+            OutputFormat::Json => {
+                let mut buf = String::new();
+
+                buf.push('[');
+                for (idx, dir) in directories.iter().enumerate() {
+                    buf.push('"');
+                    buf.push_str(dir);
+                    buf.push('"');
+                    if idx + 1 != directories.len() {
+                        buf.push(',');
+                    }
+                }
+                buf.push(']');
+
+                print!("{buf}");
             }
         }
 

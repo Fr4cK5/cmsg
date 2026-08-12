@@ -25,7 +25,7 @@ impl App {
 
     /// Run the action
     pub fn run(&self) -> Result<()> {
-        let walker = Walker::build_from(&self.cli);
+        let walker = Walker::build_from(&self.cli)?;
         let mut parsed_files = walker.walk();
         parsed_files.sort();
 

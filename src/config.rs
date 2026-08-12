@@ -5,8 +5,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use eyre::{OptionExt, Result, eyre};
+use eyre::{ContextCompat, OptionExt, Result, eyre};
 use serde::{Deserialize, Serialize};
+
+use crate::pathutil;
 
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
 pub enum StorageStrategy {
@@ -29,17 +31,22 @@ impl Display for StorageStrategy {
 impl StorageStrategy {
     pub fn locate_data_dir(self, path: &Path) -> Option<PathBuf> {
         match self {
-            StorageStrategy::GlobalFallback => {
-                Self::dotgit_data(path).or_else(Self::user_home_data)
-            }
-            StorageStrategy::Global => Self::user_home_data(),
-            StorageStrategy::DotGitOnly => Self::dotgit_data(path),
+            StorageStrategy::GlobalFallback => Self::dotgit_data(path)
+                .or_else(|_| Self::user_home_data())
+                .ok(),
+            StorageStrategy::Global => Self::user_home_data().ok(),
+            StorageStrategy::DotGitOnly => Self::dotgit_data(path).ok(),
         }
     }
 
-    pub fn dotgit_data(path: &Path) -> Option<PathBuf> {
+    pub fn dotgit_data(path: &Path) -> Result<PathBuf> {
         let parts = path.iter().collect::<Vec<_>>();
-        let mut parts = (1..=parts.len())
+        // This needs to be 2.. because if we start from 1..,
+        // we'd get paths like this: C:.git, which, for some reason, windows says exist...
+        // This isn't a problem on linux, where /.git would be a directory rather than a volume
+        // label which would probably not exist.
+        let base_offset = if cfg!(target_os = "windows") { 2 } else { 1 };
+        let mut parts = (base_offset..=parts.len())
             .flat_map(|i| {
                 let path = parts.iter().take(i).collect::<PathBuf>().join(".git");
                 fs::exists(&path)
@@ -50,17 +57,35 @@ impl StorageStrategy {
             .collect::<Vec<_>>();
 
         parts.sort_by_key(|item| item.iter().count());
-        parts.last().cloned()
+
+        parts
+            .last()
+            .wrap_err_with(|| eyre!("Unable to find suitable project-local data directory"))
+            .and_then(pathutil::normalize)
     }
 
-    pub fn user_home_data() -> Option<PathBuf> {
-        env::home_dir().map(|dir| {
-            if cfg!(target_os = "windows") {
-                dir.join("AppData/Local/cmsg")
-            } else {
-                dir.join(".local/share/cmsg")
-            }
-        })
+    pub fn user_home_data() -> Result<PathBuf> {
+        env::home_dir()
+            .ok_or_eyre(eyre!("Unable to get home directory of current user"))
+            .and_then(|dir| {
+                if cfg!(target_os = "windows") {
+                    pathutil::normalize(dir.join("AppData/Local/cmsg/data"))
+                } else {
+                    pathutil::normalize(dir.join(".local/share/cmsg/data"))
+                }
+            })
+    }
+
+    pub fn user_home_db() -> eyre::Result<PathBuf> {
+        env::home_dir()
+            .ok_or_eyre(eyre!("Unable to get home directory of current user"))
+            .and_then(|dir| {
+                if cfg!(target_os = "windows") {
+                    pathutil::normalize(dir.join("AppData/Local/cmsg/data.db"))
+                } else {
+                    pathutil::normalize(dir.join(".local/share/cmsg/data.db"))
+                }
+            })
     }
 }
 
@@ -85,10 +110,8 @@ impl Default for Config {
 
 impl Config {
     pub fn load(path: &Path, storage_strategy: StorageStrategy) -> Result<Self> {
-        let path = path.canonicalize()?;
-
         let path = storage_strategy
-            .locate_data_dir(&path)
+            .locate_data_dir(path)
             .ok_or_eyre(eyre!("Unable to locate suitable data directory according to storage strategy {storage_strategy}"))?;
 
         Ok(Self {
