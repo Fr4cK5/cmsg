@@ -1,4 +1,4 @@
-use std::ffi::OsString;
+use std::{ffi::OsString, path::PathBuf};
 
 use eyre::Result;
 use serde::Serialize;
@@ -40,14 +40,32 @@ impl ParsedFiles {
 /// ParsedFile represents a whole file of parsed lines.
 #[derive(Debug, Clone, Serialize)]
 pub struct ParsedFile {
+    /// The full file path
     pub file: OsString,
+
+    /// The file path, relative to the base directory (`-d` flag)
+    pub relative_path: PathBuf,
+
+    /// Parsed .cmsg lines contained withing this file's content
     pub lines: Vec<ParsedLine>,
+
+    /// A Sha-256 hash of the file's contents
     pub hash: String,
 }
 
 impl ParsedFile {
-    pub fn new(file: OsString, lines: Vec<ParsedLine>, hash: String) -> Self {
-        Self { file, lines, hash }
+    pub fn new(
+        file: OsString,
+        lines: Vec<ParsedLine>,
+        hash: String,
+        relative_path: PathBuf,
+    ) -> Self {
+        Self {
+            file,
+            lines,
+            hash,
+            relative_path,
+        }
     }
 }
 

@@ -66,7 +66,7 @@ impl Walker {
             for _ in 0..threads {
                 // TODO: Use this with the pathdiff crate. Apparently it lets us do the thing we
                 // need to, to get a path relative to the walk_base instead of an absolute one.
-                // let walk_base = self.walk_base.clone();
+                let walk_base = self.walk_base.clone();
 
                 // Into parser
                 let (in_sender, in_receiver) = mpsc::channel::<PathBuf>();
@@ -92,11 +92,12 @@ impl Walker {
                         let file_hash = hash::sha256_hash_alloc(content.as_bytes());
                         let mut parser = Parser::new(&content);
                         let result = parser.parse();
-                        eprintln!("{}", file_name.display());
 
-                        if !result.is_empty() {
+                        if !result.is_empty()
+                            && let Some(path) = pathdiff::diff_paths(&file_name, &walk_base)
+                        {
                             out_sender
-                                .send(ParsedFile::new(file_name, result, file_hash))
+                                .send(ParsedFile::new(file_name, result, file_hash, path))
                                 .ok();
                         }
                     }

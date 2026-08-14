@@ -121,14 +121,11 @@ impl Commit {
 
         for file in &files.0 {
             let source = file.file.as_os_str();
-            let destination = pathutil::normalize(backup_root.join(source))?;
+            let destination = pathutil::normalize(backup_root.join(&file.relative_path))?;
             let destination_parent = destination
                 .parent()
                 .map(ToOwned::to_owned)
                 .unwrap_or_else(|| PathBuf::from("."));
-
-            dbg!(source, &destination, &destination_parent, &backup_root);
-            None::<i32>.expect("balls");
 
             fs::create_dir_all(&destination_parent).map_err(|err| {
                 eyre!(
