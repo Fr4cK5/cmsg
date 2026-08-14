@@ -64,8 +64,6 @@ impl Walker {
             let (join_sender, join_receiver) = mpsc::channel::<ParsedFile>();
 
             for _ in 0..threads {
-                // TODO: Use this with the pathdiff crate. Apparently it lets us do the thing we
-                // need to, to get a path relative to the walk_base instead of an absolute one.
                 let walk_base = self.walk_base.clone();
 
                 // Into parser

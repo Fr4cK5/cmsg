@@ -260,11 +260,9 @@ impl Clean {
             let mut prepared = tx.prepare("delete from data_directory where path = :path")?;
             for dir in &directories {
                 if fs::exists(dir).unwrap_or_default()
-                // && let Err(e) = fs::remove_dir_all(dir)
+                    && let Err(e) = fs::remove_dir_all(dir)
                 {
-                    // TODO: Test and remove the dry-run behavior
-                    eprintln!("Would remove: {dir}");
-                    // eprintln!("{e}: Failed to remove data directory '{dir}'");
+                    eprintln!("{e}: Failed to remove data directory '{dir}'");
                 } else {
                     prepared.execute(named_params! {
                         ":path": &dir,
