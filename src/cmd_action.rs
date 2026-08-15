@@ -1,6 +1,6 @@
 use std::{
+    fmt::Write as _,
     fs,
-    ops::Sub as _,
     path::{Path, PathBuf},
 };
 
@@ -14,6 +14,7 @@ use crate::{
     meta::{MetadataRepo, types::Backup},
     parser::ParsedFiles,
     pathutil,
+    serialize_types::SerializableParsedFile,
 };
 
 /// A capability package supplied to every action.
@@ -38,14 +39,74 @@ pub struct List {
 
 impl List {
     pub fn run(&self, data: &CmdData) -> Result<()> {
-        let output = data.files.to_formatted_string(data.output);
+        match data.output {
+            OutputFormat::Natural => {
+                let mut buf = String::new();
 
-        match &output {
-            Ok(output) => println!("{output}"),
-            Err(err) => eprintln!("{err}"),
+                for file in &data.files.0 {
+                    _ = writeln!(&mut buf, "File {}", file.file.display());
+
+                    let mut max_len = file
+                        .lines
+                        .iter()
+                        .map(|item| item.line)
+                        .max()
+                        .unwrap_or_default();
+
+                    let mut max_width = 1usize;
+                    while max_len > 10 {
+                        max_width += 1;
+                        max_len /= 10;
+                    }
+
+                    for line in file.lines.iter() {
+                        _ = writeln!(
+                            &mut buf,
+                            "  Line {: >ln_width$}: {}",
+                            line.line,
+                            line.message,
+                            ln_width = max_width
+                        );
+                    }
+
+                    buf.push('\n');
+                }
+
+                println!("{buf}");
+            }
+            OutputFormat::Vim => {
+                let mut buf = String::new();
+
+                for file in &data.files.0 {
+                    for line in &file.lines {
+                        _ = writeln!(
+                            &mut buf,
+                            "{}:{}={}",
+                            file.file.display(),
+                            line.line,
+                            line.message
+                        );
+                    }
+                }
+
+                println!("{buf}");
+            }
+            OutputFormat::Json => {
+                let files = data
+                    .files
+                    .0
+                    .iter()
+                    .map(|file| SerializableParsedFile::from(file.clone()))
+                    .collect::<Vec<_>>();
+
+                let json = serde_json::to_string_pretty(&files)
+                    .map_err(|err| eyre!("{err}: Failed to serialize parsed files to json"))?;
+
+                println!("{json}");
+            }
         }
 
-        output.map(|_| ())
+        Ok(())
     }
 }
 
@@ -219,24 +280,9 @@ impl Clean {
                 }
             }
             OutputFormat::Json => {
-                let capacity = 2 // []
-                + commit_hashes.len() * (hash::EFFECTIVE_BUF_SIZE + 2) // "<commit-hash>"
-                + commit_hashes.len().sub(1); // ,
-
-                let mut buf = String::with_capacity(capacity);
-
-                buf.push('[');
-                for (idx, commit_hash) in commit_hashes.iter().enumerate() {
-                    buf.push('"');
-                    buf.push_str(commit_hash);
-                    buf.push('"');
-                    if idx + 1 != commit_hashes.len() {
-                        buf.push(',');
-                    }
+                if let Ok(json) = serde_json::to_string_pretty(&commit_hashes) {
+                    println!("{json}");
                 }
-                buf.push(']');
-
-                print!("{buf}");
             }
         }
 
@@ -284,22 +330,10 @@ impl Clean {
                     println!("{dir}");
                 }
             }
-            // TODO: Transform all manual json serialization into `Serialize` types.
             OutputFormat::Json => {
-                let mut buf = String::new();
-
-                buf.push('[');
-                for (idx, dir) in directories.iter().enumerate() {
-                    buf.push('"');
-                    buf.push_str(dir);
-                    buf.push('"');
-                    if idx + 1 != directories.len() {
-                        buf.push(',');
-                    }
+                if let Ok(json) = serde_json::to_string_pretty(&directories) {
+                    println!("{json}");
                 }
-                buf.push(']');
-
-                print!("{buf}");
             }
         }
 

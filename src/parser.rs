@@ -1,9 +1,6 @@
 use std::{ffi::OsString, path::PathBuf};
 
-use eyre::Result;
 use serde::Serialize;
-
-use crate::cli::OutputFormat;
 
 const MARKER: &str = ".cmsg";
 
@@ -28,10 +25,6 @@ impl ParsedLine {
 pub struct ParsedFiles(pub Vec<ParsedFile>);
 
 impl ParsedFiles {
-    pub fn to_formatted_string(&self, format: OutputFormat) -> Result<String> {
-        format.format(self)
-    }
-
     pub fn sort(&mut self) {
         self.0.sort_by(|a, b| a.file.cmp(&b.file));
     }

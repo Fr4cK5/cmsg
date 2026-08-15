@@ -2,11 +2,7 @@ use clap::{CommandFactory, Parser};
 use eyre::Result;
 use std::{fmt::Display, path::PathBuf};
 
-use crate::{
-    cmd_action::{Clean, Commit, List},
-    parser::ParsedFiles,
-    writer::{json::JsonFormatter, natural::NaturalFormatter, vim::VimFormatter},
-};
+use crate::cmd_action::{Clean, Commit, List};
 
 /// The basic flag definitions all the globally available flags.
 #[derive(Debug, Clone, clap::Parser)]
@@ -67,11 +63,6 @@ impl Cli {
 }
 
 /// The output format
-///
-/// TODO: Replace this, or, at least, don't hide the formatter behind it.
-/// Instead make every command invoke the correct formatter itself as this is not really expandable
-/// unless we make individual formatters and somehow differentiate between the implementations upon
-/// action invocation. Hold that thought, I'm cookin.
 #[derive(Debug, Clone, Copy, Default, clap::ValueEnum)]
 pub enum OutputFormat {
     #[default]
@@ -86,16 +77,6 @@ impl Display for OutputFormat {
             Self::Natural => "natural",
             Self::Vim => "vim",
             Self::Json => "json",
-        })
-    }
-}
-
-impl OutputFormat {
-    pub fn format(&self, entries: &ParsedFiles) -> Result<String> {
-        Ok(match *self {
-            Self::Natural => NaturalFormatter::format(entries),
-            Self::Vim => VimFormatter::format(entries),
-            Self::Json => JsonFormatter::format(entries)?,
         })
     }
 }

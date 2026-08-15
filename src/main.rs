@@ -21,8 +21,8 @@ mod hash;
 mod meta;
 mod parser;
 mod pathutil;
+mod serialize_types;
 mod walker;
-mod writer;
 
 fn main() -> Result<()> {
     let start = Instant::now();
