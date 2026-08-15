@@ -2,7 +2,7 @@ use eyre::Result;
 
 use crate::{
     cli::{Action, Cli},
-    cmd_action::{CmdData, Count},
+    cmd_action::{CmdData, Count, Inspect},
     config::Config,
     meta::MetadataRepo,
     walker::Walker,
@@ -44,7 +44,7 @@ impl App {
 
         match self.cli.action.as_ref().unwrap_or(&Action::default()) {
             Action::List(list) => list.run(&cmd_data),
-            Action::Inspect => todo!(),
+            Action::Inspect => Inspect::run(&cmd_data),
             Action::Commit(commit) => commit.run(&cmd_data),
             Action::Reset => todo!(),
             // Locate should print the base-dir/data-dir, the whole path to the back including the

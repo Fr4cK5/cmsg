@@ -1,4 +1,4 @@
-use std::{cell::RefCell, fs, path::Path};
+use std::{cell::RefCell, collections::HashMap, fs, path::Path};
 
 use eyre::{OptionExt, Result, eyre};
 use rusqlite::{Connection, Transaction, named_params};
@@ -100,6 +100,50 @@ impl MetadataRepo {
         }
 
         Ok(Some((rows, id)))
+    }
+
+    pub fn fetch_data_dirs_and_backups(tx: &Transaction) -> Result<HashMap<String, Vec<String>>> {
+        let dirs = {
+            let mut prepared = tx.prepare("select id, path from data_directory")?;
+            let rows = prepared
+                .query_map([], |row| {
+                    let id = row.get::<_, i64>("id")?;
+                    let path = row.get::<_, String>("path")?;
+                    Ok((id, path))
+                })?
+                .flatten();
+
+            let mut dirs = Vec::new();
+            for row in rows {
+                dirs.push(row);
+            }
+            dirs
+        };
+
+        let mapped = {
+            let mut prepared =
+                tx.prepare("select hash from backup_entry where data_directory_id = :dd_id")?;
+
+            dirs.into_iter()
+                .flat_map(
+                    |(data_directory_id, data_directory_has)| -> eyre::Result<_> {
+                        let backup_entries = prepared
+                            .query_map(
+                                named_params! {
+                                    ":dd_id": data_directory_id,
+                                },
+                                |row| row.get::<_, String>(0),
+                            )
+                            .map(|rows| rows.flatten().collect::<Vec<_>>())
+                            .map_err(|err| eyre!("{err}: Error fetching backup entries from db"))?;
+
+                        Ok((data_directory_has, backup_entries))
+                    },
+                )
+                .collect::<HashMap<_, _>>()
+        };
+
+        Ok(mapped)
     }
 
     pub fn transaction<T, F>(&self, f: F) -> Result<T>
