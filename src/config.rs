@@ -10,6 +10,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::pathutil;
 
+/// The storage strategy defines how to pick a data directory, and implements the necessary things
+/// to locate a suitable one for any valid state.
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
 pub enum StorageStrategy {
     #[default]
@@ -89,6 +91,7 @@ impl StorageStrategy {
     }
 }
 
+/// The runtime config
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     pub storage_strategy: StorageStrategy,

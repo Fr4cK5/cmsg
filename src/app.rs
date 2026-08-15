@@ -8,9 +8,15 @@ use crate::{
     walker::Walker,
 };
 
+/// The application(TM)
 pub struct App {
+    /// CLI arguments
     cli: Cli,
+
+    /// Runtime configuration
     config: Config,
+
+    /// The repo to manipulate the DB
     metadata_repo: MetadataRepo,
 }
 
@@ -37,10 +43,8 @@ impl App {
         };
 
         match self.cli.action.as_ref().unwrap_or(&Action::default()) {
-            // TODO: Perhaps rename List -> Show, and use List as the command for listing out all
-            // the entries, just like `git stash list`
-            // Don't forget to update the default impl for `Action`!
             Action::List(list) => list.run(&cmd_data),
+            Action::Inspect => todo!(),
             Action::Commit(commit) => commit.run(&cmd_data),
             Action::Reset => todo!(),
             // Locate should print the base-dir/data-dir, the whole path to the back including the

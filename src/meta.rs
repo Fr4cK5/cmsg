@@ -7,6 +7,9 @@ use crate::{config::StorageStrategy, meta::types::Backup};
 
 pub mod types;
 
+/// A wrapper around a `rusqlite::Connection`.
+///
+/// This also houses some functions to abstract away some common SQL operations.
 pub struct MetadataRepo {
     connection: RefCell<Connection>,
 }

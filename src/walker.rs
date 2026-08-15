@@ -14,8 +14,15 @@ use crate::{
     parser::{ParsedFile, ParsedFiles, Parser},
 };
 
+/// A wrapper around the `ignore::WalkParallel` type with additional information.
+///
+/// This wrapper currently exclusively uses the parallel walker, as the intended use case /
+/// environment for cmsg is on a "modern" multi-core CPU system.
 pub struct Walker {
+    /// The walk base, so from where the `WalkParallel` starts walking the directory hierarchy.
     walk_base: PathBuf,
+
+    /// The built walker implementation.
     walker: WalkParallel,
 }
 

@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
+/// A single backup, created when invoking the `commit` command / from the database.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Backup {
     /// The backup's random SHA-256 hash as a 64-char hex string

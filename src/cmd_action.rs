@@ -16,6 +16,7 @@ use crate::{
     pathutil,
 };
 
+/// A capability package supplied to every action.
 pub struct CmdData<'a> {
     pub files: &'a ParsedFiles,
     pub output: OutputFormat,
@@ -23,6 +24,7 @@ pub struct CmdData<'a> {
     pub repo: &'a MetadataRepo,
 }
 
+/// The `ls` subcommand
 #[derive(Debug, Clone, Default, clap::Parser)]
 pub struct List {
     #[arg(
@@ -53,6 +55,7 @@ impl List {
     }
 }
 
+/// The `count` subcommand
 #[derive(Debug, Clone, Default, clap::Parser)]
 pub struct Count;
 
@@ -82,6 +85,7 @@ impl Count {
     }
 }
 
+/// The `commit` subcommand
 #[derive(Debug, Clone, Default, clap::Parser)]
 pub struct Commit {
     #[arg(
@@ -151,6 +155,7 @@ impl Commit {
     }
 }
 
+/// The `clean` subcommand
 #[derive(Debug, Clone, Default, clap::Parser)]
 pub struct Clean {
     #[arg(

@@ -8,6 +8,7 @@ use crate::{
     writer::{json::JsonFormatter, natural::NaturalFormatter, vim::VimFormatter},
 };
 
+/// The basic flag definitions all the globally available flags.
 #[derive(Debug, Clone, clap::Parser)]
 #[command(
     version = "0.0.1",
@@ -65,6 +66,12 @@ impl Cli {
     }
 }
 
+/// The output format
+///
+/// TODO: Replace this, or, at least, don't hide the formatter behind it.
+/// Instead make every command invoke the correct formatter itself as this is not really expandable
+/// unless we make individual formatters and somehow differentiate between the implementations upon
+/// action invocation. Hold that thought, I'm cookin.
 #[derive(Debug, Clone, Copy, Default, clap::ValueEnum)]
 pub enum OutputFormat {
     #[default]
@@ -93,32 +100,76 @@ impl OutputFormat {
     }
 }
 
+/// An action, invocable from the CLI
 #[derive(Debug, Clone, clap::Parser)]
 pub enum Action {
-    #[command(name = "ls", about = "List all occurences of .cmsg markers")]
+    /// The `ls` command
+    ///
+    /// Output format:
+    /// File <relative-path>
+    ///   Line <line>: <msg>
+    ///   ...
+    ///
+    /// ...
+    #[command(
+        name = "ls",
+        alias = "l",
+        about = "List all occurences of .cmsg markers"
+    )]
     List(List),
 
+    /// The `inspect` command
+    ///
+    /// Output format:
+    /// <hash> <data-dir>/<hash>
+    /// ...
+    #[command(name = "inspect", alias = "i", about = "Inspect the metadata database")]
+    Inspect,
+
+    /// The `commit` command
+    ///
+    /// Output format:
+    /// Reset to <hash>
     #[command(
         name = "commit",
+        alias = "c",
         about = "List all occurences of .cmsg markers, remove them from the code, and return a hash to reset to should this mess up the code"
     )]
     Commit(Commit),
 
+    /// The `reset` command
+    ///
+    /// Output format:
+    /// Reset to <hash>
     #[command(
         name = "reset",
         about = "Reset to some previously commited state based on a hash"
     )]
     Reset,
 
+    /// The `count` command
+    ///
+    /// Output format:
+    /// <count>
     #[command(name = "count", about = "Count all occurences of .cmsg markers")]
     Count,
 
+    /// The `locate` command
+    ///
+    /// Output format:
+    /// <data-dir>/<hash>
     #[command(
         name = "locate",
         about = "Show the the directory where a specific backup's files reside on the file system based on a hash"
     )]
     Locate,
 
+    /// The `clean` command
+    ///
+    /// Output format:
+    /// Removed the following data directories:
+    ///   <data-directory>
+    ///   ...
     #[command(
         name = "clean",
         about = "Clean all data directories, reclaiming some storage space"
