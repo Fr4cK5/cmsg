@@ -38,13 +38,7 @@ pub struct List {
 
 impl List {
     pub fn run(&self, data: &CmdData) -> Result<()> {
-        let output = if self.copy {
-            // TODO: Reconsider this. When using --copy, do we really want to force vim output?
-            // This kind of feels like an unnecessary constraint and too uselessly opinionated.
-            data.files.to_formatted_string(OutputFormat::Vim)
-        } else {
-            data.files.to_formatted_string(data.output)
-        };
+        let output = data.files.to_formatted_string(data.output);
 
         match &output {
             Ok(output) => println!("{output}"),
@@ -290,6 +284,7 @@ impl Clean {
                     println!("{dir}");
                 }
             }
+            // TODO: Transform all manual json serialization into `Serialize` types.
             OutputFormat::Json => {
                 let mut buf = String::new();
 
