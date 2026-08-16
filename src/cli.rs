@@ -2,13 +2,13 @@ use clap::{CommandFactory, Parser};
 use eyre::Result;
 use std::{fmt::Display, path::PathBuf};
 
-use crate::cmd_action::{Clean, Commit, List};
+use crate::cmd_action::{Clean, Commit, List, Locate};
 
 /// The basic flag definitions all the globally available flags.
 #[derive(Debug, Clone, clap::Parser)]
 #[command(
     version = "0.0.1",
-    about = "cmsg: track your work in plain text directly where you write it"
+    about = "cmsg: track your work in plain text right then and there"
 )]
 pub struct Cli {
     #[arg(
@@ -137,13 +137,16 @@ pub enum Action {
 
     /// The `locate` command
     ///
-    /// Output format:
+    /// Output format w/ specified hash:
     /// <data-dir>/<hash>
+    ///
+    /// Output format w/o specified hash:
+    /// <data-dir>
     #[command(
         name = "locate",
         about = "Show the the directory where a specific backup's files reside on the file system based on a hash"
     )]
-    Locate,
+    Locate(Locate),
 
     /// The `clean` command
     ///

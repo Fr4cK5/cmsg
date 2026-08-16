@@ -47,9 +47,7 @@ impl App {
             Action::Inspect => Inspect::run(&cmd_data),
             Action::Commit(commit) => commit.run(&cmd_data),
             Action::Reset => todo!(),
-            // Locate should print the base-dir/data-dir, the whole path to the back including the
-            // commit hash
-            Action::Locate => todo!(),
+            Action::Locate(locate) => locate.run(&cmd_data),
             Action::Count => Count::run(&cmd_data),
             Action::Clean(clean) => clean.run(&cmd_data),
         }?;

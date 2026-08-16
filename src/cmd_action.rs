@@ -1,11 +1,10 @@
 use std::{
-    collections::HashMap,
     fmt::Write as _,
     fs,
     path::{Path, PathBuf},
 };
 
-use eyre::{Result, eyre};
+use eyre::{OptionExt, Result, eyre};
 use rusqlite::named_params;
 
 use crate::{
@@ -16,6 +15,7 @@ use crate::{
     parser::ParsedFiles,
     pathutil,
     serialize_types::SerializableParsedFile,
+    trie::PrefixTrie,
 };
 
 /// A capability package supplied to every action.
@@ -375,6 +375,41 @@ impl Inspect {
             }
         }
 
+        Ok(())
+    }
+}
+
+/// The `locate` subcommand
+#[derive(Debug, Clone, Default, clap::Parser)]
+pub struct Locate {
+    pub hash: Option<String>,
+}
+
+impl Locate {
+    pub fn run(&self, data: &CmdData) -> Result<()> {
+        let path = match &self.hash {
+            Some(user_input_hash) => {
+                let hashes = data.repo.transaction(MetadataRepo::fetch_backup_hashes)?;
+
+                let normalized_hashes = hashes
+                    .into_iter()
+                    .map(|item| item.to_uppercase())
+                    .collect::<Vec<_>>();
+
+                let trie = PrefixTrie::from(normalized_hashes);
+
+                let found_hash = trie
+                    // TODO: Implement a flag that lets the user switch between strict matching
+                    // and inclusive matching (lists out all partial matches)
+                    .get_by_prefix(user_input_hash.to_uppercase())
+                    .ok_or_eyre(eyre!("No hash found that matches {user_input_hash}"))?;
+
+                &data.config.data_directory.join(found_hash)
+            }
+            None => &data.config.data_directory,
+        };
+
+        println!("{}", path.display());
         Ok(())
     }
 }

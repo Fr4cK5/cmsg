@@ -22,6 +22,7 @@ mod meta;
 mod parser;
 mod pathutil;
 mod serialize_types;
+mod trie;
 mod walker;
 
 fn main() -> Result<()> {

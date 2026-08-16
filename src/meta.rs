@@ -146,6 +146,14 @@ impl MetadataRepo {
         Ok(mapped)
     }
 
+    pub fn fetch_backup_hashes(tx: &Transaction) -> Result<Vec<String>> {
+        let mut prepared = tx.prepare("select hash from backup_entry")?;
+        Ok(prepared
+            .query_map([], |row| row.get::<_, String>(0))?
+            .flatten()
+            .collect::<Vec<_>>())
+    }
+
     pub fn transaction<T, F>(&self, f: F) -> Result<T>
     where
         F: Fn(&Transaction) -> Result<T>,
