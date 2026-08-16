@@ -4,7 +4,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use eyre::{OptionExt, Result, eyre};
+use eyre::{Result, eyre};
 use rusqlite::named_params;
 
 use crate::{
@@ -15,7 +15,7 @@ use crate::{
     parser::ParsedFiles,
     pathutil,
     serialize_types::SerializableParsedFile,
-    trie::PrefixTrie,
+    trie::{PrefixTrie, TrieLookupResult},
 };
 
 /// A capability package supplied to every action.
@@ -382,6 +382,15 @@ impl Inspect {
 /// The `locate` subcommand
 #[derive(Debug, Clone, Default, clap::Parser)]
 pub struct Locate {
+    // TODO: Actually implement allow_ambiguous' functionality
+    // ALSO SEE: trie.rs:1
+    #[arg(
+        short,
+        long,
+        default_value_t = false,
+        help = "Allow ambiguous patterns to match, this enables the possibility of multiple hashes being printed to stdout"
+    )]
+    pub allow_ambiguous: bool,
     pub hash: Option<String>,
 }
 
@@ -398,18 +407,26 @@ impl Locate {
 
                 let trie = PrefixTrie::from(normalized_hashes);
 
-                let found_hash = trie
-                    // TODO: Implement a flag that lets the user switch between strict matching
-                    // and inclusive matching (lists out all partial matches)
-                    .get_by_prefix(user_input_hash.to_uppercase())
-                    .ok_or_eyre(eyre!("No hash found that matches {user_input_hash}"))?;
+                let found_hash = match trie.get_by_prefix(user_input_hash.to_uppercase()) {
+                    TrieLookupResult::None => {
+                        return Err(eyre!("Input did not match any known hashes"));
+                    }
+                    TrieLookupResult::Ambiguous => {
+                        return Err(eyre!(
+                            "Input is ambiguous; use --allow-ambiguous(-a) to get all matching hashes"
+                        ));
+                    }
+                    TrieLookupResult::Unique(value) => value,
+                };
 
-                &data.config.data_directory.join(found_hash)
+                vec![data.config.data_directory.join(found_hash)]
             }
-            None => &data.config.data_directory,
+            None => vec![data.config.data_directory.clone()],
         };
 
-        println!("{}", path.display());
+        // TODO: Implement different output formats
+        // ALSO SEE: trie.rs:1
+        println!("{:?}", path);
         Ok(())
     }
 }
