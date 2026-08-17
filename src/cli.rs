@@ -144,7 +144,7 @@ pub enum Action {
     /// <data-dir>
     #[command(
         name = "locate",
-        about = "Show the the directory where a specific backup's files reside on the file system based on a hash"
+        about = "Show the current project's data directory. I the hash is specified, it is used as a prefix filter for all known hashes"
     )]
     Locate(Locate),
 

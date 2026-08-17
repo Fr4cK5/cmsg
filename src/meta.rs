@@ -146,10 +146,15 @@ impl MetadataRepo {
         Ok(mapped)
     }
 
-    pub fn fetch_backup_hashes(tx: &Transaction) -> Result<Vec<String>> {
-        let mut prepared = tx.prepare("select hash from backup_entry")?;
+    pub fn fetch_backup_hashes(tx: &Transaction, path: &Path) -> Result<Vec<String>> {
+        let mut prepared = tx.prepare("select be.hash from backup_entry be join data_directory dd on dd.id = be.data_directory_id where dd.path = :path")?;
         Ok(prepared
-            .query_map([], |row| row.get::<_, String>(0))?
+            .query_map(
+                named_params! {
+                    ":path": path.to_str(),
+                },
+                |row| row.get::<_, String>(0),
+            )?
             .flatten()
             .collect::<Vec<_>>())
     }

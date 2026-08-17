@@ -1,7 +1,4 @@
-// TODO: Remove linter allow after implementing `-a` flag for `locate`.
-#![allow(unused)]
-
-use std::{collections::HashMap, fmt::Display, hash::Hash};
+use std::{collections::HashMap, hash::Hash};
 
 #[derive(Debug, Default)]
 struct Node<Key, Value> {
@@ -57,7 +54,7 @@ pub struct PrefixTrie<Key, Value> {
 impl<Key, Value> From<Vec<Value>> for PrefixTrie<Key, Value>
 where
     Key: Default + Eq + Hash + Clone,
-    Value: Default + AsRef<[Key]> + Display,
+    Value: Default + AsRef<[Key]>,
 {
     fn from(value: Vec<Value>) -> Self {
         let mut trie = PrefixTrie::default();
@@ -71,7 +68,7 @@ where
 impl<Key, Value> PrefixTrie<Key, Value>
 where
     Key: Default + Eq + Hash + Clone,
-    Value: Default + AsRef<[Key]> + Display,
+    Value: Default + AsRef<[Key]>,
 {
     pub fn insert(&mut self, value: Value) {
         let keys = value.as_ref();

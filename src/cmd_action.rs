@@ -155,6 +155,8 @@ pub struct Commit {
 
 impl Commit {
     pub fn run(&self, data: &CmdData) -> Result<()> {
+        // TODO: Actually remove the cmsg markers from the code, but definitely implement
+        // the reset functionality first.
         if data.files.0.is_empty() {
             return Ok(());
         }
@@ -382,8 +384,6 @@ impl Inspect {
 /// The `locate` subcommand
 #[derive(Debug, Clone, Default, clap::Parser)]
 pub struct Locate {
-    // TODO: Actually implement allow_ambiguous' functionality
-    // ALSO SEE: trie.rs:1
     #[arg(
         short,
         long,
@@ -396,9 +396,11 @@ pub struct Locate {
 
 impl Locate {
     pub fn run(&self, data: &CmdData) -> Result<()> {
-        let path = match &self.hash {
+        let paths = match &self.hash {
             Some(user_input_hash) => {
-                let hashes = data.repo.transaction(MetadataRepo::fetch_backup_hashes)?;
+                let hashes = data.repo.transaction(|tx| {
+                    MetadataRepo::fetch_backup_hashes(tx, &data.config.data_directory)
+                })?;
 
                 let normalized_hashes = hashes
                     .into_iter()
@@ -407,26 +409,62 @@ impl Locate {
 
                 let trie = PrefixTrie::from(normalized_hashes);
 
-                let found_hash = match trie.get_by_prefix(user_input_hash.to_uppercase()) {
-                    TrieLookupResult::None => {
-                        return Err(eyre!("Input did not match any known hashes"));
-                    }
-                    TrieLookupResult::Ambiguous => {
-                        return Err(eyre!(
-                            "Input is ambiguous; use --allow-ambiguous(-a) to get all matching hashes"
-                        ));
-                    }
-                    TrieLookupResult::Unique(value) => value,
-                };
+                if self.allow_ambiguous {
+                    trie.get_by_prefix_all(user_input_hash.to_uppercase())
+                        .map(|hashes| {
+                            hashes
+                                .into_iter()
+                                .map(|hash| data.config.data_directory.join(hash))
+                                .collect::<Vec<_>>()
+                        })
+                        .unwrap_or_default()
+                } else {
+                    let found_hash = match trie.get_by_prefix(user_input_hash.to_uppercase()) {
+                        TrieLookupResult::None => {
+                            return Err(eyre!("Input did not match any known hashes"));
+                        }
+                        TrieLookupResult::Ambiguous => {
+                            return Err(eyre!(
+                                "Input is ambiguous; use --allow-ambiguous(-a) to get all matching hashes"
+                            ));
+                        }
+                        TrieLookupResult::Unique(value) => value,
+                    };
 
-                vec![data.config.data_directory.join(found_hash)]
+                    vec![data.config.data_directory.join(found_hash)]
+                }
             }
             None => vec![data.config.data_directory.clone()],
         };
 
-        // TODO: Implement different output formats
-        // ALSO SEE: trie.rs:1
-        println!("{:?}", path);
+        match data.output {
+            OutputFormat::Natural => {
+                if paths.len() == 1
+                    && let Some(path) = paths.first()
+                {
+                    println!(
+                        "The current project's data directory is: {}",
+                        path.display()
+                    );
+                } else {
+                    println!("The following data directories were found:");
+                    for path in paths {
+                        println!("  {}", path.display());
+                    }
+                }
+                println!();
+            }
+            OutputFormat::Vim => {
+                for path in paths {
+                    println!("{}", path.display());
+                }
+            }
+            OutputFormat::Json => {
+                let json = serde_json::to_string_pretty(&paths)?;
+                println!("{json}");
+            }
+        }
+
         Ok(())
     }
 }
