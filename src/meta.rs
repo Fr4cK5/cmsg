@@ -3,7 +3,7 @@ use std::{cell::RefCell, collections::HashMap, fs, path::Path};
 use eyre::{OptionExt, Result, eyre};
 use rusqlite::{Connection, Transaction, named_params};
 
-use crate::{config::StorageStrategy, meta::types::Backup};
+use crate::{config::StorageStrategy, meta::types::CommitData};
 
 pub mod types;
 
@@ -56,7 +56,7 @@ impl MetadataRepo {
 
     pub fn insert_backup_record(
         tx: &Transaction,
-        backup: &Backup,
+        commit: &CommitData,
         data_directory_id: i64,
     ) -> Result<i64> {
         let mut prepared = tx.prepare(
@@ -64,7 +64,7 @@ impl MetadataRepo {
         )?;
 
         Ok(prepared.insert(named_params! {
-            ":hash": &backup.backup_hash,
+            ":hash": &commit.hash,
             ":dir_id": data_directory_id,
         })?)
     }

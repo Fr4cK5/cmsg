@@ -117,7 +117,9 @@ where
                 }
                 Some(child_node) => {
                     node = child_node;
-                    if node.count != 1 && keys.peek().is_none() {
+                    // Hidden condition: child_node.count == 1 is a guard in branch above,
+                    // meaning `child_node.count != 1` must be true.
+                    if keys.peek().is_none() {
                         return TrieLookupResult::Ambiguous;
                     }
                 }
@@ -152,6 +154,42 @@ where
                 .flatten()
                 .collect::<Vec<_>>(),
         )
+    }
+
+    pub fn get_shortest_unique_path(&self, value: Value) -> Option<(usize, &Value)> {
+        if let (len, Some(values)) = self.get_shortest_unique_path_inner(value)
+            && values.len() == 1
+        {
+            return values.first().map(|item| (len, &**item));
+        }
+
+        None
+    }
+
+    fn get_shortest_unique_path_inner(&self, value: Value) -> (usize, Option<Vec<&Value>>) {
+        let keys = value.as_ref();
+        let mut node = &self.root;
+        let mut keys_iter = keys.iter().enumerate().peekable();
+        let mut earlist_unique = None;
+
+        while let Some((idx, key)) = keys_iter.next() {
+            match node.children.get(key) {
+                Some(child_node) if child_node.count == 1 && earlist_unique.is_none() => {
+                    node = child_node;
+                    earlist_unique = Some((idx + 1, Some(child_node)));
+                }
+                Some(child_node) if child_node.count == 1 && keys_iter.peek().is_none() => {
+                    if let Some(earliest) = earlist_unique.as_ref() {
+                        return (earliest.0, child_node.all_values());
+                    }
+                }
+                Some(child_node) => node = child_node,
+                None if keys_iter.peek().is_none() => return (0, None),
+                None => return (idx + 1, node.all_values()),
+            }
+        }
+
+        (keys.len(), node.all_values())
     }
 }
 
@@ -224,5 +262,36 @@ mod trie_tests {
 
         // This is important, as it ensures we correctly match the whole key we're given.
         assert_eq!(trie.get_by_prefix_all("qwerty"), None);
+    }
+
+    #[test]
+    fn test_shortest_unique_path() {
+        let mut trie = PrefixTrie::default();
+        trie.insert("abcdef");
+        trie.insert("abhjkl");
+        trie.insert("qwertz");
+
+        assert_eq!(trie.get_shortest_unique_path("a"), None);
+        assert_eq!(trie.get_shortest_unique_path("ab"), None);
+
+        assert_eq!(
+            trie.get_shortest_unique_path("abcdef"),
+            Some((3, &"abcdef"))
+        );
+        assert_eq!(
+            trie.get_shortest_unique_path("abhjkl"),
+            Some((3, &"abhjkl"))
+        );
+
+        assert_eq!(trie.get_shortest_unique_path("q"), Some((1, &"qwertz")));
+        assert_eq!(trie.get_shortest_unique_path("qw"), Some((1, &"qwertz")));
+        assert_eq!(trie.get_shortest_unique_path("qwe"), Some((1, &"qwertz")));
+        assert_eq!(trie.get_shortest_unique_path("qwer"), Some((1, &"qwertz")));
+        assert_eq!(trie.get_shortest_unique_path("qwert"), Some((1, &"qwertz")));
+        assert_eq!(
+            trie.get_shortest_unique_path("qwertz"),
+            Some((1, &"qwertz"))
+        );
+        assert_eq!(trie.get_shortest_unique_path("qwerty"), None);
     }
 }

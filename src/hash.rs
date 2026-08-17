@@ -6,6 +6,8 @@ use sha2::{Digest, Sha256};
 //   which themselves prefer to call it a digest. Usage of digest is fine here, and only here.
 
 // important(perf): Update this alongside the algorithm should it ever change.
+// important(docs): Update all the occurences of "64" related to the char length, such as in cli
+//                  help texts and other parts of the code/docs.
 const DIGEST_SIZE: usize = 256;
 
 // * 2 -> One byte results in 2 hex chars.

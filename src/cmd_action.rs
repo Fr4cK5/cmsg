@@ -4,14 +4,14 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use eyre::{Result, eyre};
+use eyre::{ContextCompat, Result, eyre};
 use rusqlite::named_params;
 
 use crate::{
     cli::OutputFormat,
     config::Config,
     hash,
-    meta::{MetadataRepo, types::Backup},
+    meta::{MetadataRepo, types::CommitData},
     parser::ParsedFiles,
     pathutil,
     serialize_types::SerializableParsedFile,
@@ -33,7 +33,7 @@ pub struct List {
         short,
         long,
         default_value_t = false,
-        help = "Copy the output to the system clipboard. Forces vim output format."
+        help = "Copy the output to the system clipboard"
     )]
     pub copy: bool,
 }
@@ -148,9 +148,25 @@ pub struct Commit {
         short,
         long,
         default_value_t = false,
-        help = "Copy the output to the system clipboard. Forces vim output format."
+        help = "Copy the output to the system clipboard"
     )]
     pub copy: bool,
+
+    #[arg(
+        short = 'L',
+        long,
+        default_value_t = false,
+        help = "Don't list the removed .cmsg markers"
+    )]
+    pub no_list: bool,
+
+    #[arg(
+        short = 'S',
+        long,
+        default_value_t = false,
+        help = "Print the full 64 chars long hash instead of just the smaller version that already makes it unique"
+    )]
+    pub no_short_hash: bool,
 }
 
 impl Commit {
@@ -161,17 +177,42 @@ impl Commit {
             return Ok(());
         }
 
-        List::default().run(data)?;
-        let backup = Self::create_backup(data.files, &data.config.data_directory)?;
+        if !self.no_list {
+            List::default().run(data)?;
+        }
+        let commit = Self::create_commit(data.files, &data.config.data_directory)?;
 
         data.repo.transaction(|tx| {
             let data_directory_id = MetadataRepo::upsert_path(tx, &data.config.data_directory)?;
-            MetadataRepo::insert_backup_record(tx, &backup, data_directory_id)?;
+            MetadataRepo::insert_backup_record(tx, &commit, data_directory_id)?;
             Ok(())
-        })
+        })?;
+
+        let commit_hash = if self.no_short_hash {
+            &commit.hash
+        } else {
+            let hashes = data.repo.transaction(|tx| {
+                MetadataRepo::fetch_backup_hashes(tx, &data.config.data_directory)
+            })?;
+
+            let trie = PrefixTrie::from(hashes);
+            let (len, path) = trie
+                .get_shortest_unique_path(commit.hash)
+                .wrap_err(eyre!("This should never happen"))?;
+
+            &path.clone()[0..len]
+        };
+
+        match data.output {
+            OutputFormat::Natural => println!("Commit hash: {}", commit_hash),
+            OutputFormat::Vim => println!("{}", commit_hash),
+            OutputFormat::Json => println!(r#""{}""#, commit_hash),
+        }
+
+        Ok(())
     }
 
-    fn create_backup(files: &ParsedFiles, data_dir: &Path) -> Result<Backup> {
+    fn create_commit(files: &ParsedFiles, data_dir: &Path) -> Result<CommitData> {
         let mut buf = [0u8; 256];
         fastrand::fill(&mut buf);
         let backup_hash = hash::sha256_hash_alloc(&buf);
@@ -205,8 +246,8 @@ impl Commit {
             })?;
         }
 
-        Ok(Backup {
-            backup_hash,
+        Ok(CommitData {
+            hash: backup_hash,
             data_directory: data_dir.to_owned(),
             backup_root,
         })
