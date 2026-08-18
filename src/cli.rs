@@ -2,7 +2,7 @@ use clap::{CommandFactory, Parser};
 use eyre::Result;
 use std::{fmt::Display, path::PathBuf};
 
-use crate::cmd_action::{clean::Clean, commit::Commit, list::List, locate::Locate};
+use crate::cmd_action::{clean::Clean, commit::Commit, list::List, locate::Locate, reset::Reset};
 
 /// The basic flag definitions all the globally available flags.
 #[derive(Debug, Clone, clap::Parser)]
@@ -81,6 +81,8 @@ impl Display for OutputFormat {
     }
 }
 
+// TODO: Drop subcommand to drop a specific commit hash
+
 /// An action, invocable from the CLI
 #[derive(Debug, Clone, clap::Parser)]
 pub enum Action {
@@ -126,7 +128,7 @@ pub enum Action {
         name = "reset",
         about = "Reset to some previously commited state based on a hash"
     )]
-    Reset,
+    Reset(Reset),
 
     /// The `count` command
     ///

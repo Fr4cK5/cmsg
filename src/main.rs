@@ -17,6 +17,7 @@ mod app;
 mod cli;
 mod cmd_action;
 mod config;
+mod fs_ext;
 mod hash;
 mod meta;
 mod parser;

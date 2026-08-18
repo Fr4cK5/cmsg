@@ -159,6 +159,31 @@ impl MetadataRepo {
             .collect::<Vec<_>>())
     }
 
+    pub fn remove_commit(tx: &Transaction, hash: &str) -> Result<()> {
+        let mut prepared = tx.prepare("delete from backup_entry where hash = :hash")?;
+        prepared.execute(named_params! {
+            ":hash": hash,
+        })?;
+        Ok(())
+    }
+
+    pub fn gc_dangling_data_directories(tx: &Transaction) -> Result<()> {
+        let mut prepared = tx.prepare("select id from data_directory dd where (select count(*) from backup_entry be where be.data_directory_id = dd.id) = 0")?;
+        let garbage = prepared
+            .query_map([], |row| row.get::<_, i64>(0))?
+            .flatten()
+            .collect::<Vec<_>>();
+
+        let mut prepared = tx.prepare("delete from data_directory where id = :id")?;
+        for id in garbage {
+            prepared.execute(named_params! {
+                ":id": id,
+            })?;
+        }
+
+        Ok(())
+    }
+
     pub fn transaction<T, F>(&self, f: F) -> Result<T>
     where
         F: Fn(&Transaction) -> Result<T>,

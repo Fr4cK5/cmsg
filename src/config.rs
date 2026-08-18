@@ -94,10 +94,14 @@ impl StorageStrategy {
 /// The runtime config
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
+    // TODO: Implement global config loading, so we can actually make use of this feature.
     pub storage_strategy: StorageStrategy,
 
     #[serde(skip)]
     pub data_directory: PathBuf,
+
+    #[serde(skip)]
+    pub working_directory: PathBuf,
 }
 
 impl Default for Config {
@@ -107,19 +111,21 @@ impl Default for Config {
                 .locate_data_dir(&env::current_dir().expect("Unable to get cwd"))
                 .expect("Unable to find any suitable storage directory.\nThis error signifies that there was no project-local .git directory and your home directory could not be found."),
             storage_strategy: StorageStrategy::default(),
+            working_directory: PathBuf::from("."),
         }
     }
 }
 
 impl Config {
-    pub fn load(path: &Path, storage_strategy: StorageStrategy) -> Result<Self> {
-        let path = storage_strategy
-            .locate_data_dir(path)
+    pub fn load(working_directory: &Path, storage_strategy: StorageStrategy) -> Result<Self> {
+        let data_directory = storage_strategy
+            .locate_data_dir(working_directory)
             .ok_or_eyre(eyre!("Unable to locate suitable data directory according to storage strategy {storage_strategy}"))?;
 
         Ok(Self {
             storage_strategy,
-            data_directory: path,
+            data_directory,
+            working_directory: working_directory.to_owned(),
         })
     }
 }

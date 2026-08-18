@@ -46,7 +46,7 @@ impl App {
             Action::List(list) => list.run(&cmd_data),
             Action::Inspect => Inspect::run(&cmd_data),
             Action::Commit(commit) => commit.run(&cmd_data),
-            Action::Reset => todo!(),
+            Action::Reset(reset) => reset.run(&cmd_data),
             Action::Locate(locate) => locate.run(&cmd_data),
             Action::Count => Count::run(&cmd_data),
             Action::Clean(clean) => clean.run(&cmd_data),
