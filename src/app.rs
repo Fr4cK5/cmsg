@@ -2,7 +2,7 @@ use eyre::Result;
 
 use crate::{
     cli::{Action, Cli},
-    cmd_action::{CmdData, Count, Inspect},
+    cmd_action::{CmdData, count::Count, inspect::Inspect},
     config::Config,
     meta::MetadataRepo,
     walker::Walker,

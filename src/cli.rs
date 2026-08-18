@@ -2,7 +2,7 @@ use clap::{CommandFactory, Parser};
 use eyre::Result;
 use std::{fmt::Display, path::PathBuf};
 
-use crate::cmd_action::{Clean, Commit, List, Locate};
+use crate::cmd_action::{clean::Clean, commit::Commit, list::List, locate::Locate};
 
 /// The basic flag definitions all the globally available flags.
 #[derive(Debug, Clone, clap::Parser)]
