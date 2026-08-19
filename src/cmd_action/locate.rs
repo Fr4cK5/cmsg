@@ -73,9 +73,13 @@ impl Locate {
                         path.display()
                     );
                 } else {
-                    println!("The following data directories were found:");
-                    for path in paths {
-                        println!("  {}", path.display());
+                    if paths.is_empty() {
+                        println!("Input did not match any known hashes");
+                    } else {
+                        println!("The following data directories were found:");
+                        for path in paths {
+                            println!("  {}", path.display());
+                        }
                     }
                 }
                 println!();
