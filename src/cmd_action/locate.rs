@@ -20,6 +20,9 @@ pub struct Locate {
     pub hash: Option<String>,
 }
 
+// TODO: locate -a but without a hash should probably just grab all hashes from the local project
+// instead of show the current data directory base.
+// This is gonna need good documentation tho, so keep that in mind.
 impl Locate {
     pub fn run(&self, data: &CmdData) -> Result<()> {
         let paths = match &self.hash {
