@@ -27,6 +27,7 @@ mod trie;
 mod walker;
 
 fn main() -> Result<()> {
+    #[cfg(debug_assertions)]
     let start = Instant::now();
 
     let cli_args = Cli::parse_and_validate();
@@ -40,10 +41,17 @@ fn main() -> Result<()> {
 
     let metadata_repo = MetadataRepo::new()?;
 
-    App::new(cli_args, config, metadata_repo).run()?;
+    if cfg!(debug_assertions) {
+        App::new(cli_args, config, metadata_repo).run()?;
+    } else if let Err(err) = App::new(cli_args, config, metadata_repo).run() {
+        eprintln!("Error: {err}");
+    }
 
-    let elapsed = start.elapsed();
-    dbg!(elapsed);
+    #[cfg(debug_assertions)]
+    {
+        let elapsed = start.elapsed();
+        dbg!(elapsed);
+    }
 
     Ok(())
 }
