@@ -146,7 +146,7 @@ pub enum Action {
     /// <data-dir>
     #[command(
         name = "locate",
-        about = "Show the current project's data directory. I the hash is specified, it is used as a prefix filter for all known hashes"
+        about = "Show the current project's data directory. If the hash is specified, it is used as a prefix filter for all known hashes"
     )]
     Locate(Locate),
 

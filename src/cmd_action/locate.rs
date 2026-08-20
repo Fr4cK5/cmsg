@@ -14,15 +14,12 @@ pub struct Locate {
         short,
         long,
         default_value_t = false,
-        help = "Allow ambiguous patterns to match, this enables the possibility of multiple hashes being printed to stdout"
+        help = "Allow ambiguous patterns to match, this enables the possibility of multiple hashes being printed to stdout. If used without an input hash, this will print all *local* hashes"
     )]
     pub allow_ambiguous: bool,
     pub hash: Option<String>,
 }
 
-// TODO: locate -a but without a hash should probably just grab all hashes from the local project
-// instead of show the current data directory base.
-// This is gonna need good documentation tho, so keep that in mind.
 impl Locate {
     pub fn run(&self, data: &CmdData) -> Result<()> {
         let paths = match &self.hash {
@@ -63,6 +60,14 @@ impl Locate {
                     vec![data.config.data_directory.join(found_hash)]
                 }
             }
+            None if self.allow_ambiguous => data
+                .repo
+                .transaction(|tx| {
+                    MetadataRepo::fetch_backup_hashes(tx, &data.config.data_directory)
+                })?
+                .into_iter()
+                .map(|hash| data.config.data_directory.join(hash))
+                .collect::<Vec<_>>(),
             None => vec![data.config.data_directory.clone()],
         };
 
