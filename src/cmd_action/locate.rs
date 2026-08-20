@@ -80,14 +80,12 @@ impl Locate {
                         "The current project's data directory is: {}",
                         path.display()
                     );
+                } else if paths.is_empty() {
+                    println!("Input did not match any known hashes");
                 } else {
-                    if paths.is_empty() {
-                        println!("Input did not match any known hashes");
-                    } else {
-                        println!("The following data directories were found:");
-                        for path in paths {
-                            println!("  {}", path.display());
-                        }
+                    println!("The following data directories were found:");
+                    for path in paths {
+                        println!("  {}", path.display());
                     }
                 }
                 println!();
