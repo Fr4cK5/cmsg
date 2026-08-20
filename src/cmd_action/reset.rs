@@ -8,7 +8,7 @@ use crate::{cli::OutputFormat, cmd_action::CmdData, fs_ext, meta::MetadataRepo, 
 #[derive(Debug, Clone, Default, clap::Parser)]
 pub struct Reset {
     /// The hash to reset to
-    pub user_input_hash: String,
+    pub input_hash: String,
 
     #[arg(
         short,
@@ -27,7 +27,7 @@ impl Reset {
 
         let trie = PrefixTrie::from(hashes);
 
-        let found_hashes = match trie.get_by_prefix_all(self.user_input_hash.to_uppercase()) {
+        let found_hashes = match trie.get_by_prefix_all(self.input_hash.to_uppercase()) {
             Some(items) if items.len() == 1 => items,
             Some(items) => {
                 eprintln!("Input is ambiguous; it matched the following hashes: ");

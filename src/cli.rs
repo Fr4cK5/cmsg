@@ -2,7 +2,9 @@ use clap::{CommandFactory, Parser};
 use eyre::Result;
 use std::{fmt::Display, path::PathBuf};
 
-use crate::cmd_action::{clean::Clean, commit::Commit, list::List, locate::Locate, reset::Reset};
+use crate::cmd_action::{
+    clean::Clean, commit::Commit, drop::Drop, list::List, locate::Locate, reset::Reset,
+};
 
 /// The basic flag definitions all the globally available flags.
 #[derive(Debug, Clone, clap::Parser)]
@@ -80,8 +82,6 @@ impl Display for OutputFormat {
         })
     }
 }
-
-// TODO: Drop subcommand to drop a specific commit hash
 
 /// An action, invocable from the CLI
 #[derive(Debug, Clone, clap::Parser)]
@@ -161,6 +161,12 @@ pub enum Action {
         about = "Clean all data directories, reclaiming some storage space"
     )]
     Clean(Clean),
+
+    #[command(
+        name = "drop",
+        about = "Drop one specific commit hash to reclaim some storage space"
+    )]
+    Drop(Drop),
 }
 
 impl Default for Action {

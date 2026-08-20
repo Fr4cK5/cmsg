@@ -50,6 +50,7 @@ impl App {
             Action::Locate(locate) => locate.run(&cmd_data),
             Action::Count => Count::run(&cmd_data),
             Action::Clean(clean) => clean.run(&cmd_data),
+            Action::Drop(drop) => drop.run(&cmd_data),
         }?;
 
         Ok(())

@@ -23,7 +23,7 @@ pub struct Locate {
 impl Locate {
     pub fn run(&self, data: &CmdData) -> Result<()> {
         let paths = match &self.hash {
-            Some(user_input_hash) => {
+            Some(input_hash) => {
                 let hashes = data.repo.transaction(|tx| {
                     MetadataRepo::fetch_backup_hashes(tx, &data.config.data_directory)
                 })?;
@@ -36,7 +36,7 @@ impl Locate {
                 let trie = PrefixTrie::from(normalized_hashes);
 
                 if self.allow_ambiguous {
-                    trie.get_by_prefix_all(user_input_hash.to_uppercase())
+                    trie.get_by_prefix_all(input_hash.to_uppercase())
                         .map(|hashes| {
                             hashes
                                 .into_iter()
@@ -45,7 +45,7 @@ impl Locate {
                         })
                         .unwrap_or_default()
                 } else {
-                    let found_hash = match trie.get_by_prefix(user_input_hash.to_uppercase()) {
+                    let found_hash = match trie.get_by_prefix(input_hash.to_uppercase()) {
                         TrieLookupResult::None => {
                             return Err(eyre!("Input did not match any known hashes"));
                         }

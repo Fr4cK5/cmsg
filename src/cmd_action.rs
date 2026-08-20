@@ -3,6 +3,7 @@ use crate::{cli::OutputFormat, config::Config, meta::MetadataRepo, parser::Parse
 pub mod clean;
 pub mod commit;
 pub mod count;
+pub mod drop;
 pub mod inspect;
 pub mod list;
 pub mod locate;
