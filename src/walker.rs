@@ -102,7 +102,7 @@ impl Walker {
                             && let Some(path) = pathdiff::diff_paths(&file_name, &walk_base)
                         {
                             out_sender
-                                .send(ParsedFile::new(file_name, result, file_hash, path))
+                                .send(ParsedFile::new(file_name, result, file_hash, path, content))
                                 .ok();
                         }
                     }

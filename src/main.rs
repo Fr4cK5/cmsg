@@ -1,4 +1,4 @@
-#![feature(normalize_lexically)]
+#![feature(normalize_lexically, path_add_extension)]
 
 use std::time::Instant;
 

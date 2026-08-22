@@ -2,7 +2,7 @@ use std::{ffi::OsString, path::PathBuf};
 
 use serde::Serialize;
 
-const MARKER: &str = ".cmsg";
+pub const MARKER: &str = ".cmsg";
 
 /// ParsedLine represents a single, context-less, parsed line.
 /// It consists of a line number where its .cmsg was found, and the contained message.
@@ -44,6 +44,9 @@ pub struct ParsedFile {
 
     /// A Sha-256 hash of the file's contents
     pub hash: String,
+
+    /// The file's content
+    pub content: String,
 }
 
 impl ParsedFile {
@@ -52,12 +55,14 @@ impl ParsedFile {
         lines: Vec<ParsedLine>,
         hash: String,
         relative_path: PathBuf,
+        content: String,
     ) -> Self {
         Self {
             file,
             lines,
             hash,
             relative_path,
+            content,
         }
     }
 }

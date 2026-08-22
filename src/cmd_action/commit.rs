@@ -8,9 +8,13 @@ use eyre::{ContextCompat, Result, eyre};
 use crate::{
     cli::OutputFormat,
     cmd_action::{CmdData, list::List},
+    fs_ext::{self, SafeWriteError},
     hash,
-    meta::{MetadataRepo, types::CommitData},
-    parser::ParsedFiles,
+    meta::{
+        MetadataRepo,
+        types::{CommitData, RollbackData},
+    },
+    parser::{self, ParsedFiles},
     pathutil,
     trie::PrefixTrie,
 };
@@ -45,8 +49,6 @@ pub struct Commit {
 
 impl Commit {
     pub fn run(&self, data: &CmdData) -> Result<()> {
-        // TODO: Actually remove the cmsg markers from the code, but definitely implement
-        // the reset functionality first.
         if data.files.0.is_empty() {
             return Ok(());
         }
@@ -82,6 +84,69 @@ impl Commit {
             OutputFormat::Vim => println!("{}", commit_hash),
             OutputFormat::Json => println!(r#""{}""#, commit_hash),
         }
+
+        let mut rollbacks = Vec::<RollbackData>::new();
+        let mut error = false;
+
+        for file in &data.files.0 {
+            let src = &data.config.working_directory.join(&file.relative_path);
+            let new_content = file
+                .content
+                .lines()
+                .filter(|line| !line.contains(parser::MARKER))
+                .collect::<Vec<_>>()
+                .join("\n");
+
+            match fs_ext::safe_write(src, "cmsg", &new_content) {
+                Ok(rollback_data) => rollbacks.push(rollback_data),
+                Err(e) => {
+                    error = true;
+                    match e {
+                        SafeWriteError::WriteFailed(rollback_data) => {
+                            rollbacks.push(rollback_data);
+                            break;
+                        }
+                        SafeWriteError::DestinationDeterminationFailed => {
+                            eprintln!(
+                                "Failed to determine the backup location while performing a safe-write for file {}",
+                                src.display()
+                            );
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        if error {
+            for rollback in &rollbacks {
+                fs::rename(&rollback.destination, &rollback.source)
+                    .map_err(|err|
+                        eyre!(
+                            "{err}: Automatic rollback after safe-write failed.\nYour files are in a bad state, but you can restore them by using the reset command with the above commit hash."
+                        )
+                    )?;
+            }
+
+            let mut errors = Vec::new();
+
+            for err in rollbacks
+                .iter()
+                .flat_map(|item| item.error.as_ref())
+                .collect::<Vec<_>>()
+            {
+                errors.push(format!("{err}"));
+            }
+
+            return Err(eyre!(
+                "Commit failed, but automatic rollback was successful.\n{}",
+                errors.join("\n"),
+            ));
+        }
+
+        eprintln!(
+            "Commit successful, please check if the files still contain valid syntax, as every marker's full line was removed."
+        );
 
         Ok(())
     }
