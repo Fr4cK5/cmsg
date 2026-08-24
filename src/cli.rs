@@ -94,11 +94,7 @@ pub enum Action {
     ///   ...
     ///
     /// ...
-    #[command(
-        name = "ls",
-        alias = "l",
-        about = "List all occurences of .cmsg markers"
-    )]
+    #[command(name = "ls", about = "List all occurences of .cmsg markers")]
     List(List),
 
     /// The `inspect` command
@@ -106,7 +102,11 @@ pub enum Action {
     /// Output format:
     /// <hash> <data-dir>/<hash>
     /// ...
-    #[command(name = "inspect", alias = "i", about = "Inspect the metadata database")]
+    #[command(
+        name = "inspect",
+        alias = "i",
+        about = "(alias = i) Inspect the metadata database"
+    )]
     Inspect,
 
     /// The `commit` command
@@ -116,7 +116,7 @@ pub enum Action {
     #[command(
         name = "commit",
         alias = "c",
-        about = "List all occurences of .cmsg markers, remove them from the code, and return a hash to reset to should this mess up the code"
+        about = "(alias = c) List all occurences of .cmsg markers, remove them from the code, and return a hash to reset to should this mess up the code"
     )]
     Commit(Commit),
 
@@ -126,7 +126,8 @@ pub enum Action {
     /// Reset to <hash>
     #[command(
         name = "reset",
-        about = "Reset to some previously commited state based on a hash"
+        alias = "r",
+        about = "(alias = r) Reset to some previously commited state based on a hash"
     )]
     Reset(Reset),
 
@@ -146,7 +147,8 @@ pub enum Action {
     /// <data-dir>
     #[command(
         name = "locate",
-        about = "Show the current project's data directory. If the hash is specified, it is used as a prefix filter for all known hashes"
+        alias = "l",
+        about = "(alias = l) Show the current project's data directory. If the hash is specified, it is used as a prefix filter for all known hashes"
     )]
     Locate(Locate),
 

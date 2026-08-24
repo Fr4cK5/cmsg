@@ -23,7 +23,7 @@ impl List {
                 let mut buf = String::new();
 
                 for file in &data.files.0 {
-                    _ = writeln!(&mut buf, "File {}", file.file.display());
+                    _ = writeln!(&mut buf, "File {}", file.relative_path.display());
 
                     let mut max_len = file
                         .lines
@@ -61,7 +61,7 @@ impl List {
                         _ = writeln!(
                             &mut buf,
                             "{}:{}={}",
-                            file.file.display(),
+                            file.relative_path.display(),
                             line.line,
                             line.message
                         );

@@ -12,7 +12,7 @@ pub struct SerializableParsedFile {
 impl From<ParsedFile> for SerializableParsedFile {
     fn from(value: ParsedFile) -> Self {
         Self {
-            file: value.file.to_string_lossy().to_string(),
+            file: value.relative_path.to_string_lossy().to_string(),
             lines: value.lines,
         }
     }

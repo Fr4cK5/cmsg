@@ -1,5 +1,6 @@
-#![feature(normalize_lexically, path_add_extension)]
+#![feature(normalize_lexically)]
 
+#[cfg(debug_assertions)]
 use std::time::Instant;
 
 use eyre::Result;
