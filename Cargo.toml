@@ -1,3 +1,5 @@
+cargo-features = ["profile-rustflags"]
+
 [package]
 name = "cmsg"
 version = "0.1.0"
@@ -21,3 +23,7 @@ lto = "fat"
 codegen-units = 1
 panic = "unwind"
 strip = "symbols"
+
+[profile.native]
+inherits = "prod"
+rustflags = ["-C", "target-cpu=native"]
