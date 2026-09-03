@@ -2,6 +2,8 @@ use std::{ffi::OsString, path::PathBuf};
 
 use serde::Serialize;
 
+use crate::walker::WalkStats;
+
 pub const MARKER: &str = ".cmsg";
 
 /// ParsedLine represents a single, context-less, parsed line.
@@ -22,11 +24,14 @@ impl ParsedLine {
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub struct ParsedFiles(pub Vec<ParsedFile>);
+pub struct ParsedFiles {
+    pub files: Vec<ParsedFile>,
+    pub stats: WalkStats,
+}
 
 impl ParsedFiles {
     pub fn sort(&mut self) {
-        self.0.sort_by(|a, b| a.file.cmp(&b.file));
+        self.files.sort_by(|a, b| a.file.cmp(&b.file));
     }
 }
 

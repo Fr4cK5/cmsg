@@ -22,7 +22,7 @@ impl List {
             OutputFormat::Natural => {
                 let mut buf = String::new();
 
-                for file in &data.files.0 {
+                for file in &data.files.files {
                     _ = writeln!(&mut buf, "File {}", file.relative_path.display());
 
                     let mut max_len = file
@@ -56,7 +56,7 @@ impl List {
             OutputFormat::Vim => {
                 let mut buf = String::new();
 
-                for file in &data.files.0 {
+                for file in &data.files.files {
                     for line in &file.lines {
                         _ = writeln!(
                             &mut buf,
@@ -73,7 +73,7 @@ impl List {
             OutputFormat::Json => {
                 let files = data
                     .files
-                    .0
+                    .files
                     .iter()
                     .map(|file| SerializableParsedFile::from(file.clone()))
                     .collect::<Vec<_>>();

@@ -49,7 +49,7 @@ pub struct Commit {
 
 impl Commit {
     pub fn run(&self, data: &CmdData) -> Result<()> {
-        if data.files.0.is_empty() {
+        if data.files.files.is_empty() {
             return Ok(());
         }
 
@@ -88,7 +88,7 @@ impl Commit {
         let mut rollbacks = Vec::<RollbackData>::new();
         let mut error = false;
 
-        for file in &data.files.0 {
+        for file in &data.files.files {
             let src = &data.config.working_directory.join(&file.relative_path);
             let new_content = file
                 .content
@@ -161,7 +161,7 @@ impl Commit {
             eyre!("{err}: Failed to create storage directory, your files have not been touched.")
         })?;
 
-        for file in &files.0 {
+        for file in &files.files {
             let source = file.file.as_os_str();
             let destination = pathutil::normalize(backup_root.join(&file.relative_path))?;
             let destination_parent = destination

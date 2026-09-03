@@ -53,6 +53,10 @@ impl App {
             Action::Drop(drop) => drop.run(&cmd_data),
         }?;
 
+        if self.cli.stats {
+            println!("{}", parsed_files.stats);
+        }
+
         Ok(())
     }
 }

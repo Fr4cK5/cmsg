@@ -29,6 +29,14 @@ pub struct Cli {
     )]
     pub include_hidden: bool,
 
+    #[arg(
+        short = 's',
+        long,
+        default_value_t = false,
+        help = "Display statistics about the walking and parsing phase"
+    )]
+    pub stats: bool,
+
     #[arg(short = 'd', long, default_value_t = String::from("."), help = "Path from which to start recursively searching files")]
     pub base_directory: String,
 

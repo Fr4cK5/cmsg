@@ -1,8 +1,14 @@
 use std::{
+    fmt::Display,
     fs,
     path::PathBuf,
-    sync::mpsc::{self, Sender},
+    sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+        mpsc::{self, Sender},
+    },
     thread,
+    time::{Duration, Instant},
 };
 
 use eyre::Result;
@@ -43,6 +49,8 @@ impl Walker {
     }
 
     pub fn walk(self) -> ParsedFiles {
+        let start = Instant::now();
+
         let (sender, receiver) = mpsc::channel::<PathBuf>();
 
         self.walker.run(|| {
@@ -64,6 +72,11 @@ impl Walker {
         // senders are dropped.
         drop(sender);
 
+        // performance metrics
+        let stats_total_files = Arc::new(AtomicUsize::new(0));
+        let stats_matched_files = Arc::new(AtomicUsize::new(0));
+        let stats_total_read_bytes = Arc::new(AtomicUsize::new(0));
+
         thread::scope(|scope| {
             let threads: usize = thread::available_parallelism().map_or(4usize, |nz| nz.into());
             let mut senders = Vec::<Sender<PathBuf>>::with_capacity(threads);
@@ -71,6 +84,10 @@ impl Walker {
             let (join_sender, join_receiver) = mpsc::channel::<ParsedFile>();
 
             for _ in 0..threads {
+                let stats_total_files = stats_total_files.clone();
+                let stats_matched_files = stats_matched_files.clone();
+                let stats_total_read_bytes = stats_total_read_bytes.clone();
+
                 let walk_base = self.walk_base.clone();
 
                 // Into parser
@@ -85,6 +102,10 @@ impl Walker {
                 senders.push(in_sender);
 
                 scope.spawn(move || {
+                    let mut total_files = 0;
+                    let mut matched_files = 0;
+                    let mut total_read_bytes = 0;
+
                     while let Ok(path) = in_receiver.recv() {
                         let Ok(content) = fs::read_to_string(&path) else {
                             // Any errors coming from here MUST be errors related to trying to read
@@ -98,14 +119,22 @@ impl Walker {
                         let mut parser = Parser::new(&content);
                         let result = parser.parse();
 
+                        total_files += 1;
+                        total_read_bytes += content.len();
+
                         if !result.is_empty()
                             && let Some(path) = pathdiff::diff_paths(&file_name, &walk_base)
                         {
+                            matched_files += 1;
                             out_sender
                                 .send(ParsedFile::new(file_name, result, file_hash, path, content))
                                 .ok();
                         }
                     }
+
+                    stats_total_files.fetch_add(total_files, Ordering::Release);
+                    stats_matched_files.fetch_add(matched_files, Ordering::Release);
+                    stats_total_read_bytes.fetch_add(total_read_bytes, Ordering::Release);
                 });
 
                 scope.spawn(move || {
@@ -133,7 +162,91 @@ impl Walker {
                 parsed_files.push(parsed_file);
             }
 
-            ParsedFiles(parsed_files)
+            let duration = start.elapsed();
+
+            let stats = WalkStats {
+                total_files: stats_total_files.load(Ordering::Acquire),
+                matched_files: stats_matched_files.load(Ordering::Acquire),
+                bytes_read: stats_total_read_bytes.load(Ordering::Acquire),
+                duration,
+            };
+
+            ParsedFiles {
+                files: parsed_files,
+                stats,
+            }
         })
     }
+}
+
+/// A Simple struct that holds all of our performance mentrics data to be able to uniformly pass
+/// them around and display them in text-form.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct WalkStats {
+    pub total_files: usize,
+    pub matched_files: usize,
+    pub bytes_read: usize,
+    pub duration: Duration,
+}
+
+impl Display for WalkStats {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let duration_secs = self.duration.as_secs_f64();
+        let overall_size = format_data_size(self.bytes_read);
+
+        f.write_str("========== STATS ==========\n\n")?;
+        f.write_str("Base stats:\n")?;
+        f.write_fmt(format_args!(
+            "  Total data read: {:.03}{}\n",
+            overall_size.0, overall_size.1,
+        ))?;
+
+        f.write_fmt(format_args!("  Total files read: {}\n", self.total_files))?;
+        f.write_fmt(format_args!(
+            "  Files with matches: {}\n",
+            self.matched_files
+        ))?;
+        f.write_fmt(format_args!("  Walking + Parsing: {:?}\n", self.duration))?;
+
+        let per_second_size = format_data_size((self.bytes_read as f64 / duration_secs) as usize);
+
+        f.write_str("\nThroughput:\n")?;
+        f.write_fmt(format_args!(
+            "  Data: {:.03}{}/s\n",
+            per_second_size.0, per_second_size.1
+        ))?;
+        f.write_fmt(format_args!(
+            "  Files: {:.03}/s",
+            self.total_files as f64 / duration_secs
+        ))?;
+
+        f.write_str("\n\n========== STATS ==========")
+    }
+}
+
+fn format_data_size(size: usize) -> (f64, String) {
+    let mut value = size as f64;
+    let mut unit = 0;
+
+    while value >= 1000.0 && unit < 8 {
+        value /= 1000.0;
+        unit += 1;
+    }
+
+    let suffix = match unit {
+        0 => "B",
+        1 => "KB",
+        2 => "MB",
+        3 => "GB",
+        4 => "TB",
+        5 => "PB",
+        6 => "EB",
+        7 => "ZB",
+        8 => "YB",
+        9 => "RB",
+        10 => "QB",
+        n => &format!("*1E{} (non-si-unit)", n * 3),
+    };
+
+    (value, suffix.to_owned())
 }

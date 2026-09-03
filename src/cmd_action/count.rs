@@ -8,10 +8,10 @@ pub struct Count;
 
 impl Count {
     pub fn run(data: &CmdData) -> Result<()> {
-        let file_count = data.files.0.len();
+        let file_count = data.files.files.len();
         let line_count = data
             .files
-            .0
+            .files
             .iter()
             .map(|item| item.lines.len())
             .sum::<usize>();
