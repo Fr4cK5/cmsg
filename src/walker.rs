@@ -228,7 +228,7 @@ fn format_data_size(size: usize) -> (f64, String) {
     let mut value = size as f64;
     let mut unit = 0;
 
-    while value >= 1000.0 && unit < 8 {
+    while value >= 1000.0 {
         value /= 1000.0;
         unit += 1;
     }
