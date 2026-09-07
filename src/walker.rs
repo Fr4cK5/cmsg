@@ -1,9 +1,10 @@
 use std::{
     fmt::Display,
     fs,
+    ops::AddAssign,
     path::PathBuf,
     sync::{
-        Arc,
+        Arc, Mutex,
         atomic::{AtomicUsize, Ordering},
         mpsc::{self, Sender},
     },
@@ -76,6 +77,8 @@ impl Walker {
         let stats_total_files = Arc::new(AtomicUsize::new(0));
         let stats_matched_files = Arc::new(AtomicUsize::new(0));
         let stats_total_read_bytes = Arc::new(AtomicUsize::new(0));
+        let stats_duration_file_reads = Arc::new(Mutex::new(Duration::ZERO));
+        let stats_duration_parsing = Arc::new(Mutex::new(Duration::ZERO));
 
         thread::scope(|scope| {
             let threads: usize = thread::available_parallelism().map_or(4usize, |nz| nz.into());
@@ -87,6 +90,8 @@ impl Walker {
                 let stats_total_files = stats_total_files.clone();
                 let stats_matched_files = stats_matched_files.clone();
                 let stats_total_read_bytes = stats_total_read_bytes.clone();
+                let stats_duration_file_reads = stats_duration_file_reads.clone();
+                let stats_duration_parsing = stats_duration_parsing.clone();
 
                 let walk_base = self.walk_base.clone();
 
@@ -105,19 +110,26 @@ impl Walker {
                     let mut total_files = 0;
                     let mut matched_files = 0;
                     let mut total_read_bytes = 0;
+                    let mut read_dur = Duration::ZERO;
+                    let mut parse_dur = Duration::ZERO;
 
                     while let Ok(path) = in_receiver.recv() {
+                        let read_start = Instant::now();
                         let Ok(content) = fs::read_to_string(&path) else {
                             // Any errors coming from here MUST be errors related to trying to read
                             // non-UTF8 data into a string. Rust `String`s always contain valid
                             // UTF8, meaning that a failure simply means we've hit a binary file.
+                            read_dur += read_start.elapsed();
                             continue;
                         };
+                        read_dur += read_start.elapsed();
 
                         let file_name = path.into_os_string();
                         let file_hash = hash::sha256_hash_alloc(content.as_bytes());
                         let mut parser = Parser::new(&content);
+                        let parse_start = Instant::now();
                         let result = parser.parse();
+                        parse_dur += parse_start.elapsed();
 
                         total_files += 1;
                         total_read_bytes += content.len();
@@ -132,6 +144,13 @@ impl Walker {
                         }
                     }
 
+                    if let Ok(ref mut lock) = stats_duration_file_reads.lock() {
+                        lock.add_assign(read_dur);
+                    }
+                    if let Ok(ref mut lock) = stats_duration_parsing.lock() {
+                        lock.add_assign(parse_dur);
+                    }
+                    
                     stats_total_files.fetch_add(total_files, Ordering::Release);
                     stats_matched_files.fetch_add(matched_files, Ordering::Release);
                     stats_total_read_bytes.fetch_add(total_read_bytes, Ordering::Release);
@@ -168,6 +187,14 @@ impl Walker {
                 total_files: stats_total_files.load(Ordering::Acquire),
                 matched_files: stats_matched_files.load(Ordering::Acquire),
                 bytes_read: stats_total_read_bytes.load(Ordering::Acquire),
+                file_read_duration: match stats_duration_file_reads.lock() {
+                    Ok(lock) => *lock,
+                    _ => Duration::ZERO,
+                },
+                parse_duration: match stats_duration_parsing.lock() {
+                    Ok(lock) => *lock,
+                    _ => Duration::ZERO,
+                },
                 duration,
             };
 
@@ -186,6 +213,8 @@ pub struct WalkStats {
     pub total_files: usize,
     pub matched_files: usize,
     pub bytes_read: usize,
+    pub file_read_duration: Duration,
+    pub parse_duration: Duration,
     pub duration: Duration,
 }
 
@@ -207,6 +236,14 @@ impl Display for WalkStats {
             self.matched_files
         ))?;
         f.write_fmt(format_args!("  Walking + Parsing: {:?}\n", self.duration))?;
+        f.write_fmt(format_args!(
+            "  Time spent reading files: {:?}\n",
+            self.file_read_duration
+        ))?;
+        f.write_fmt(format_args!(
+            "  Time spent parsing: {:?}\n",
+            self.parse_duration
+        ))?;
 
         let per_second_size = format_data_size((self.bytes_read as f64 / duration_secs) as usize);
 
