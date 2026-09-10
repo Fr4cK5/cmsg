@@ -1,13 +1,9 @@
 use std::{
     fmt::Display,
     fs,
-    ops::AddAssign,
+    ops::{Add, AddAssign},
     path::PathBuf,
-    sync::{
-        Arc, Mutex,
-        atomic::{AtomicUsize, Ordering},
-        mpsc::{self, Sender},
-    },
+    sync::mpsc::{self, Sender},
     thread,
     time::{Duration, Instant},
 };
@@ -73,26 +69,14 @@ impl Walker {
         // senders are dropped.
         drop(sender);
 
-        // performance metrics
-        let stats_total_files = Arc::new(AtomicUsize::new(0));
-        let stats_matched_files = Arc::new(AtomicUsize::new(0));
-        let stats_total_read_bytes = Arc::new(AtomicUsize::new(0));
-        let stats_duration_file_reads = Arc::new(Mutex::new(Duration::ZERO));
-        let stats_duration_parsing = Arc::new(Mutex::new(Duration::ZERO));
-
         thread::scope(|scope| {
             let threads: usize = thread::available_parallelism().map_or(4usize, |nz| nz.into());
             let mut senders = Vec::<Sender<PathBuf>>::with_capacity(threads);
 
             let (join_sender, join_receiver) = mpsc::channel::<ParsedFile>();
+            let mut pool = Vec::new();
 
             for _ in 0..threads {
-                let stats_total_files = stats_total_files.clone();
-                let stats_matched_files = stats_matched_files.clone();
-                let stats_total_read_bytes = stats_total_read_bytes.clone();
-                let stats_duration_file_reads = stats_duration_file_reads.clone();
-                let stats_duration_parsing = stats_duration_parsing.clone();
-
                 let walk_base = self.walk_base.clone();
 
                 // Into parser
@@ -106,12 +90,8 @@ impl Walker {
 
                 senders.push(in_sender);
 
-                scope.spawn(move || {
-                    let mut total_files = 0;
-                    let mut matched_files = 0;
-                    let mut total_read_bytes = 0;
-                    let mut read_dur = Duration::ZERO;
-                    let mut parse_dur = Duration::ZERO;
+                let handle = scope.spawn(move || {
+                    let mut stats = WalkStats::default();
 
                     while let Ok(path) = in_receiver.recv() {
                         let read_start = Instant::now();
@@ -119,42 +99,35 @@ impl Walker {
                             // Any errors coming from here MUST be errors related to trying to read
                             // non-UTF8 data into a string. Rust `String`s always contain valid
                             // UTF8, meaning that a failure simply means we've hit a binary file.
-                            read_dur += read_start.elapsed();
+                            stats.file_read_duration += read_start.elapsed();
                             continue;
                         };
-                        read_dur += read_start.elapsed();
+                        stats.file_read_duration += read_start.elapsed();
 
                         let file_name = path.into_os_string();
                         let file_hash = hash::sha256_hash_alloc(content.as_bytes());
                         let mut parser = Parser::new(&content);
                         let parse_start = Instant::now();
                         let result = parser.parse();
-                        parse_dur += parse_start.elapsed();
+                        stats.parse_duration += parse_start.elapsed();
 
-                        total_files += 1;
-                        total_read_bytes += content.len();
+                        stats.total_files += 1;
+                        stats.bytes_read += content.len();
 
                         if !result.is_empty()
                             && let Some(path) = pathdiff::diff_paths(&file_name, &walk_base)
                         {
-                            matched_files += 1;
+                            stats.matched_files += 1;
                             out_sender
                                 .send(ParsedFile::new(file_name, result, file_hash, path, content))
                                 .ok();
                         }
                     }
 
-                    if let Ok(ref mut lock) = stats_duration_file_reads.lock() {
-                        lock.add_assign(read_dur);
-                    }
-                    if let Ok(ref mut lock) = stats_duration_parsing.lock() {
-                        lock.add_assign(parse_dur);
-                    }
-                    
-                    stats_total_files.fetch_add(total_files, Ordering::Release);
-                    stats_matched_files.fetch_add(matched_files, Ordering::Release);
-                    stats_total_read_bytes.fetch_add(total_read_bytes, Ordering::Release);
+                    stats
                 });
+
+                pool.push(handle);
 
                 scope.spawn(move || {
                     while let Ok(parsed_file) = out_receiver.recv() {
@@ -181,22 +154,17 @@ impl Walker {
                 parsed_files.push(parsed_file);
             }
 
-            let duration = start.elapsed();
+            let full_duration = start.elapsed();
 
-            let stats = WalkStats {
-                total_files: stats_total_files.load(Ordering::Acquire),
-                matched_files: stats_matched_files.load(Ordering::Acquire),
-                bytes_read: stats_total_read_bytes.load(Ordering::Acquire),
-                file_read_duration: match stats_duration_file_reads.lock() {
-                    Ok(lock) => *lock,
-                    _ => Duration::ZERO,
-                },
-                parse_duration: match stats_duration_parsing.lock() {
-                    Ok(lock) => *lock,
-                    _ => Duration::ZERO,
-                },
-                duration,
+            let mut stats = WalkStats {
+                full_duration,
+                threads_used: threads,
+                ..Default::default()
             };
+
+            for handle in pool {
+                stats += handle.join().unwrap_or_default();
+            }
 
             ParsedFiles {
                 files: parsed_files,
@@ -206,21 +174,50 @@ impl Walker {
     }
 }
 
-/// A Simple struct that holds all of our performance mentrics data to be able to uniformly pass
+/// A Simple struct that holds all of our performance metrics data to be able to uniformly pass
 /// them around and display them in text-form.
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Default, Clone, serde::Serialize)]
 pub struct WalkStats {
     pub total_files: usize,
     pub matched_files: usize,
     pub bytes_read: usize,
+    pub threads_used: usize,
     pub file_read_duration: Duration,
     pub parse_duration: Duration,
-    pub duration: Duration,
+    pub full_duration: Duration,
+}
+
+impl Add for WalkStats {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self {
+            total_files: self.total_files + rhs.total_files,
+            matched_files: self.matched_files + rhs.matched_files,
+            bytes_read: self.bytes_read + rhs.bytes_read,
+            threads_used: self.threads_used + rhs.threads_used,
+            file_read_duration: self.file_read_duration + rhs.file_read_duration,
+            parse_duration: self.parse_duration + rhs.parse_duration,
+            full_duration: self.full_duration + rhs.full_duration,
+        }
+    }
+}
+
+impl AddAssign for WalkStats {
+    fn add_assign(&mut self, rhs: Self) {
+        self.total_files += rhs.total_files;
+        self.matched_files += rhs.matched_files;
+        self.bytes_read += rhs.bytes_read;
+        self.threads_used += rhs.threads_used;
+        self.file_read_duration += rhs.file_read_duration;
+        self.parse_duration += rhs.parse_duration;
+        self.full_duration += rhs.full_duration;
+    }
 }
 
 impl Display for WalkStats {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let duration_secs = self.duration.as_secs_f64();
+        let duration_secs = self.full_duration.as_secs_f64();
         let overall_size = format_data_size(self.bytes_read);
 
         f.write_str("========== STATS ==========\n\n")?;
@@ -235,14 +232,18 @@ impl Display for WalkStats {
             "  Files with matches: {}\n",
             self.matched_files
         ))?;
-        f.write_fmt(format_args!("  Walking + Parsing: {:?}\n", self.duration))?;
+        f.write_fmt(format_args!("  Full pipeline: {:?}\n", self.full_duration))?;
         f.write_fmt(format_args!(
-            "  Time spent reading files: {:?}\n",
+            "  (CPU) Time spent reading files: {:?}\n",
             self.file_read_duration
         ))?;
         f.write_fmt(format_args!(
-            "  Time spent parsing: {:?}\n",
+            "  (CPU) Time spent parsing: {:?}\n",
             self.parse_duration
+        ))?;
+        f.write_fmt(format_args!(
+            "  Thread pool: {} core(s)\n",
+            self.threads_used
         ))?;
 
         let per_second_size = format_data_size((self.bytes_read as f64 / duration_secs) as usize);
