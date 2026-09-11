@@ -1,4 +1,4 @@
-#![feature(normalize_lexically)]
+#![feature(normalize_lexically, portable_simd)]
 
 #[cfg(debug_assertions)]
 use std::time::Instant;

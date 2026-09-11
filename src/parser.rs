@@ -1,10 +1,16 @@
-use std::{ffi::OsString, path::PathBuf};
+use std::{
+    ffi::OsString,
+    num::{NonZeroU64, NonZeroUsize},
+    path::PathBuf,
+    simd::{Simd, cmp::SimdPartialEq},
+};
 
 use serde::Serialize;
 
 use crate::walker::WalkStats;
 
 pub const MARKER: &str = ".cmsg";
+pub const SIMD_LANES: usize = 64;
 
 /// ParsedLine represents a single, context-less, parsed line.
 /// It consists of a line number where its .cmsg was found, and the contained message.
@@ -75,11 +81,15 @@ impl ParsedFile {
 /// Parser to find .cmsg markers, their line number and their content.
 pub struct Parser<'a> {
     input: &'a str,
+    pos: usize,
 }
 
 impl<'a> Parser<'a> {
     pub fn new(value: &'a str) -> Self {
-        Self { input: value }
+        Self {
+            input: value,
+            pos: 0,
+        }
     }
 
     pub fn parse(&mut self) -> Vec<ParsedLine> {
@@ -93,5 +103,39 @@ impl<'a> Parser<'a> {
                 Some(ParsedLine::new(line_number, message))
             })
             .collect::<Vec<_>>()
+    }
+
+    pub fn simd_parse(&mut self) -> Vec<ParsedLine> {
+        let mut output = Vec::new();
+        while self.input.len() <= self.pos + SIMD_LANES {
+            if let Some(bits) = unsafe { self.simd_find_byte(b'.') } {
+                let mut mask = bits.get();
+                while mask != 0u64 {
+                    let idx = self.pos + mask.trailing_zeros() as usize;
+                    if let Some(result) = self.try_parse_from_offset(idx).map(ToOwned::to_owned) {
+                        output.push(ParsedLine::new(0, result));
+                    }
+                    mask &= mask - 1;
+                }
+            }
+            self.pos += SIMD_LANES;
+        }
+
+        // self.scan_remaining()
+
+        output
+    }
+
+    unsafe fn simd_find_byte(&mut self, byte: u8) -> Option<NonZeroU64> {
+        let base = Simd::<u8, SIMD_LANES>::splat(byte);
+        let values = Simd::from_slice(&self.input.as_bytes()[self.pos..self.pos + SIMD_LANES]);
+        let mask = base.simd_eq(values);
+        let bits = mask.to_bitmask();
+        NonZeroU64::new(bits)
+    }
+
+    fn try_parse_from_offset(&self, offset: usize) -> Option<&str> {
+        let start = self.pos + offset;
+        self.input.get(start..start + MARKER.len() + 1)
     }
 }
